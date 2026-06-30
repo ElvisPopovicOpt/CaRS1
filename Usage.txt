@@ -1,0 +1,89 @@
+Usage:
+  ./build/main [options]
+
+Options:
+  -h, --help                Show this help and exit
+
+
+Basics:
+  -f, --filename           <string  >  Input instance file (default: default/Afe4ns.car)
+  -s, --seed               <longlong>  Random seed (default: from clock) (default: time)
+
+Algorithm:
+  -n, --nRuns              <int     >  Number of runs (default: 1)
+  -it, --iterations        <int     >  Max iterations (default: 1000)
+  -k, --antsN              <int     >  Number of ants (default: 100)
+  -st, --stagnation        <int     >  Stagnation limit: iterations without global improvement before polish/kick. 0 = disabled. Recommended: 20-50. (default: 30)
+  -eka, --eliteKAnts       <int     >  Keep top-K ants/solutions per iteration (1..antsN). Used for ranked pheromone update. Recommended: 5-10 for better exploration. (default: 1)
+  -fv, --favorites         <int     >  Candidate list size: limits next-node choices in construction and speeds up local search. Controls exploration vs exploitation balance. Larger => better quality (more exploration), slower; smaller => faster, may degrade quality. Recommended: 0.5N to 0.67N (e.g., 25-33 for N=50, 50-67 for N=100, 150-200 for N=300). Default: 20. (default: 20)
+  -pQ0, --policyQ0         <double  >  Cars policy: exploitation probability in [0,1]. With prob q0 choose argmax(weight), else roulette. Higher => more greedy, faster convergence but less exploration. Recommended: 0.05-0.2. (default: 0.1)
+  -aq0, --adaptiveQ0       <bool    >  Enable adaptive q0: q0 increases linearly from q0Start to q0End during iterations. 0=disabled (use fixed policyQ0), 1=enabled. When enabled, q0 starts low (exploration) and increases to higher value (exploitation) as iterations progress. (default: 0)
+  -q0s, --q0Start          <double  >  Adaptive q0: starting value for early iterations (more exploration). Range: [0,1]. Lower values = more exploration, higher = more exploitation. Recommended: 0.0-0.2. (default: 0.0)
+  -q0e, --q0End            <double  >  Adaptive q0: ending value for late iterations (more exploitation). Range: [0,1]. Higher values = more exploitation, lower = more exploration. Recommended: 0.7-0.95. (default: 0.9)
+
+Pheromone:
+  -ca, --carAlpha          <double  >  Alpha (cars): pheromone weight exponent. Higher => more influence of pheromone trails. Typical: 1.0-2.0. (default: 1.5)
+  -cb, --carBeta           <double  >  Beta (cars): heuristic weight exponent. Higher => more influence of distance/cost heuristic. Typical: 1.0-5.0. (default: 1.1)
+  -cr, --carRho            <double  >  Rho (cars): evaporation rate in (0,1). Higher => faster forgetting, more exploration. Lower => slower convergence, more exploitation. Recommended: 0.05-0.2. (default: 0.1)
+  -cm, --carMaxMin         <double  >  MaxMin (cars): tauMax/tauMin ratio. 0 disables. If >0, sets tauMin = tauMax/maxMin. Typical: 20-100. Overridden by pBestCars if pBestCars > 0. (default: 0)
+  -na, --nodeAlpha         <double  >  Alpha (nodes) (default: 1.5)
+  -nb, --nodeBeta          <double  >  Beta (nodes) (default: 1.1)
+  -nr, --nodeRho           <double  >  Rho (nodes) (default: 0.1)
+  -nm, --nodeMaxMin        <double  >  MaxMin (nodes), 0 disables (default: 0)
+  -gb, --globalBestPeriod  <int     >  Global best period: 0 auto, >0 fixed, -1 off (default: 0)
+  -sgc, --smGammaCars      <double  >  Smoothing gamma (cars) in [0,1] (default: 0.5)
+  -rtc, --restartTargetCars <string  >  Restart target for smoothing: mid | tauMax (default: mid)
+  -pbc, --pBestCars        <double  >  MMAS p_best in (0,1). If > 0 enables pBest-based tauMin (overrides maxMinCars). Use 0 to disable. (default: 0)
+  -tb, --tbas              <bool    >  Pheromone model: 0 = MMAS (default, with evaporation), 1 = TBAS (Three Bounds Ant System, no evaporation, uses three bounds: tau_LB, tau_UB, tau_CB with clipping). TBAS uses Q variable updated as Q_i = Q_{i-1}/(1-rho) each iteration. (default: 0)
+
+Quality:
+  -lsq, --lsQuality        <int     >  Local Search quality mode: 1=low (fast, less precise), 2=medium, 3=high (default, balanced), 4=extreme (slowest, most precise). Sets maxPasses for TwoOpt #1, Relocation, TwoOpt #2, and DP retries. (default: 3)
+  -ls2o1p, --lsTwoOpt1Passes <int     >  Override TwoOpt #1 maxPasses (-1 = use lsQuality mode, >0 = override value). (default: -1)
+  -lsrp, --lsRelocPasses   <int     >  Override Relocation maxPasses (-1 = use lsQuality mode, >0 = override value). (default: -1)
+  -ls2o2p, --lsTwoOpt2Passes <int     >  Override TwoOpt #2 maxPasses (-1 = use lsQuality mode, >0 = override value). (default: -1)
+  -lsdr, --lsDpRetries     <int     >  Override DP fallback maxRetries (-1 = use lsQuality mode, >0 = override value). (default: -1)
+  -ri, --useReinsertion    <bool    >  Enable Reinsertion local search (single-node relocation with candidate list). LS chain becomes: 2-opt -> Relocation -> Reinsertion -> 2-opt. Default: 0 (disabled). (default: 0)
+  -rimp, --reinsertionMaxPasses <int     >  Reinsertion: max passes when enabled. Default: 5. (default: 5)
+
+Local Search:
+  -lsw, --lsTopW           <int     >  Local search width: number of elite solutions to improve with LS per iteration. 0 = dynamic (starts at 2, grows only during stagnation), >0 = fixed. Default: 2. (default: 2)
+  -ufp, --useFullPolish    <bool    >  Use full polish algorithms (LK, 3-opt) instead of lite versions. 0 = lite (faster, default), 1 = full (slower but may find better solutions). (default: 0)
+
+DP:
+  -dpc, --dpCacheCapacity  <int     >  DP cache capacity: number of cached tour evaluations. 0 = disabled. Larger => more memory, fewer recomputations. Recommended: 5000-20000 for N~300. (default: 5000)
+  -dpso, --dpMaxSegmentLenOffset <int     >  DP maxSegmentLen offset: maxSegmentLen = ceil(N/C) + offset. Larger => more accurate but slower. Use -1 for unlimited (exact DP). (default: 5)
+
+Intensifier:
+  -intf, --intensifier     <bool    >  Intensifier on/off: 1 = uključen (dodatni LS na best, reset feromona), 0 = isključen (ne upliće se u proračun ture). Default: 1. (default: 1)
+  -imsi, --intensifierMaxStagnationIterations <int     >  Intensifier max stagnation iterations: number of iterations after stagnation when intensifier is still active. Intensifier applies additional LS cycle on best solution when best is improved or within this many iterations after stagnation. Default: 3. (default: 3)
+  -irph, --intensifierResetPheromonesCount <int     >  Intensifier reset pheromones count: how many deactivations trigger pheromone reset. 0 or negative = never reset. 1 = reset after 1st deactivation, 2 = after 1st and 2nd, etc. Default: 1. (default: 1)
+  -iprg, --intensifierPheromoneReductionGamma <double  >  Intensifier pheromone reduction gamma: factor for selective pheromone reduction on best tour (0.0=full reset to tauBase, 1.0=no change). Used instead of full reset when resetPheromones is enabled. Lower values = stronger reduction. Default: 0.3. (default: 0.3)
+  -iarab, --intensifierArchiveAndResetBest <bool    >  Intensifier archive and reset best: archive global best and reset it to infinity after first deactivation of intensifier. This allows complete restart while preserving best solution in archive. Default: 1 (enabled). (default: 1)
+
+Ablation:
+  -adai, --ablationDisableAntDepositsDuringIntensification <bool    >  Ablation (pheromones vs intensifier). 0=off: normal MMAS/TBAS end-of-iteration update (evaporation + deposits from ranked ants and global-best rules). 1=on: while intensifier is active in an iteration, skip the entire pheromone update (no evaporation, no deposits, no archive-memory deposit that iteration). Default: 0. (default: 0)
+  -aria, --ablationResetPheromonesOnIntensifierActivation <bool    >  Ablation (pheromones vs intensifier). 0=off: no extra reset on intensifier activation. 1=on: each time intensifier goes inactive->active, call pheromone reset() and skip the entire pheromone update in that iteration (no deposits). Default: 0. (default: 0)
+  -aion, --ablationIntensifierOnlyNoAnts <bool    >  Ablation (no ant colony construction). 0=off: full ACO — ants build tours each iteration, ranked elite, normal pipeline. 1=on: no ant construction; iter 0 starts from one tour only (see -airit); later iters copy current global best as sole elite; pheromone updates are always skipped. Compare intensifier+LS vs full ACO. Default: 0. (default: 0)
+  -airit, --ablationIntensifierOnlyRandomInitialTour <bool    >  Only when -aion 1 (iter 0 seed tour). 0=identity Hamilton cycle 0,1,...,N-1. 1=random: shuffle nodes 1..N-1, depot 0 fixed. Default: 1. (default: 1)
+
+Exploration:
+  -exc, --exploreCars      <bool    >  Enable exploration after stagnation (0/1) (default: 0)
+  -exi, --exploreItersCars <int     >  Exploration iterations after stagnation (default: 20)
+  -exrm, --exploreRhoMultCars <double  >  Exploration rho multiplier (>=1) (default: 2.0)
+
+Surrogate:
+  -srg, --surrogateReturnGamma <double  >  Surrogate return term: add gamma * (est. returns) * (avg return cost) to surrogate for better correlation with full DP cost. 0 = off (old surrogate), 0.3-0.5 = recommended. Default: 0.5. (default: 0.5)
+
+Research:
+  -rlog, --researchLog     <bool    >  Research logging: write intensifier_binomial.csv (run, activation_index, cost_start, cost_end, improved, depth) for binomial analysis and ablations; depth = stagnation counter resets from global improvement during that activation while intensifier is active. Default: 0 (off). (default: 0)
+  -rsur, --researchSurrogateLog <bool    >  Research surrogate vs DP cost: write surrogate_correlation.csv (run, iteration, ant_index, surrogate, dp_cost) to validate correlation (~0.8). Slows run: evaluates full DP for every ant. Suggested: instances up to 100 nodes, 20-30 it, 2-3 runs. Default: 0 (off). (default: 0)
+
+Advanced:
+  -eec, --epsilonEtaCars   <double  >  Epsilon in eta=1/(eps+cost) for cars (default: 1e-6)
+  -rfc, --returnFactorCars <double  >  Cars policy only: return influence factor. 0 => no returnCost/tauReturn in construction (recommended). Deposit still uses return edges via DP. (default: 0.0)
+  -sc, --sampleCars        <bool    >  Cars policy: if 1, ant samples (nextNode, car) per edge; if 0, builds node tour only (cars assigned later by DP). (default: 1)
+  -enr, --enforceNoRerent  <bool    >  Cars policy: if 1, enforce 'no re-rent after return' already during construction (extra overhead). DP always enforces it anyway. (default: 0)
+
+Notes:
+  * Short options here are '-x' or multi-letter like '-ca' (not bundled like '-abc').
+  * You can pass values as '--key value' or '--key=value' (same for short forms).

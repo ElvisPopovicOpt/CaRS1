@@ -1,0 +1,7 @@
+run: 0, iteration: 0, stagCount: 0, q0: 0.200, LSW: 2, noImprovCount: 0, smoothing: 0, it best: 1669.000, best: 1669.000, median: 1619.000, mean: 1617.800
+[Cache] run=0, iter=0, evalHitRate=0.00% (0/33), reasHitRate=20.00% (2/10), inserts=36
+run: 0, iteration: 1, stagCount: 0, q0: 0.204, LSW: 2, noImprovCount: 0, smoothing: 0, it best: 1435.000, best: 1435.000, median: 1435.000, mean: 1435.000
+run: 0, iteration: 2, stagCount: 0, q0: 0.207, LSW: 2, noImprovCount: 0, smoothing: 0, it best: 1289.000, best: 1289.000, median: 1227.500, mean: 1235.750
+run: 0, iteration: 3, stagCount: 0, q0: 0.211, LSW: 2, noImprovCount: 0, smoothing: 0, it best: 1189.000, best: 1189.000, median: 1189.000, mean: 1193.429
+run: 0, iteration: 4, stagCount: 1, q0: 0.214, LSW: 2, noImprovCount: 1, smoothing: 0, it best: 1858.000, best: 1189.000, median: 1187.000, mean: 1188.636
+run: 0, iteration: 5, stagCount: 2, q0: 0.217, LSW: 2, noImprovCount: 2, smoothing: 0, it best: 1828.000, best: 1189.000, median: 1187.000, mean: 1189.083

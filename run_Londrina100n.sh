@@ -1,0 +1,12 @@
+./build/main --filename ./inputData/Londrina100n.car \
+  -n 51 -s 1 \
+  -k 50 \
+  -na 1.0 -nb 1.0 -ca 1.0 -cb 1.0 \
+  -eka 7 \
+  -it 200 \
+  -fv 60 \
+  --adaptiveQ0 1 --q0Start 0.2 --q0End 0.9 \
+  -lsw 0 \
+  -st 40 \
+  -irph 2 \
+  -tb 0 -ri 0

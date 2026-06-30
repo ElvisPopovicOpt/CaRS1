@@ -1,0 +1,31 @@
+---
+description: Razlikovanje MRAVA (tura) od AUTOMOBILA (vozilo) u CaRS ACO
+globs: **/*.cpp,**/*.hpp,**/*.md,*.sh
+alwaysApply: true
+---
+
+# Mrav (ant) vs. Automobil (car) – ne miješati
+
+## Koncepti
+
+- **Mrav (ant)** = subjekt koji odlučuje o **putanji (turi)**: slijed čvorova i, u ovom modelu, u istom koraku i koji se auto koristi na svakom bridu. Mrav "hoda" turom; njegova odluka je prijelaz (sljedeći čvor + auto na tom bridu). **Parametri koji kontroliraju kako mrav bira sljedeći korak** odnose se na **kretanje mrava**, ne na "izbor automobila" kao zasebnu stvar.
+- **Automobil (car)** = vozilo dodijeljeno bridu; to je **atribut rute** (koji auto ide tim bridom), ne subjekt odluke. Ne može se mrava zvati automobilom.
+
+## U kodu (policy: antPolicy.cpp, roulette.cpp)
+
+- **Kretanje po turi (odabir sljedećeg čvora)** kontroliraju **parametri za čvorove**: `alphaNodes`, `betaNodes` (CLI: `-na`, `-nb`). Za svaki kandidat čvor j računa se agregirana atraktivnost brida: `tauNode(i,j) = sum_c tauMove(c,i,j)`, `etaNode(i,j) = 1/(eps + min_c travelCost(c,i,j))`. Težina za čvor: `W_node(j) = tauNode^alphaNodes * etaNode^betaNodes`.
+- **Izbor automobila na tom bridu** kontroliraju **parametri za automobile**: `alphaCars`, `betaCars` (CLI: `-ca`, `-cb`). Za par (j, c): `W_car(j,c) = tauMove(c,i,j)^alphaCars * eta(c,i,j)^betaCars`.
+- Konačna težina prijelaza (j, c): **w(j,c) = W_node(j) * W_car(j,c)**. Mrav odabire (sljedeći čvor, auto) prema toj težini; nikad ne govoriti da "automobil bira putanju" – **mrav određuje putanju, automobil je dio putanje (atribut brida)**.
+
+## Povijesna napomena
+
+- Prije izmjene u kodu **samo** `-ca`/`-cb` su se koristili za cijeli prijelaz; `-na`/`-nb` su postojali u params ali **nisu bili korišteni** u policyju (laka zamjena pojmova). Pri refaktoriranju ili dokumentaciji ne vratiti na "sve preko alphaCars/betaCars".
+
+## Pravilo za generatore
+
+Kad pišeš ili mijenjaš kod ili dokumentaciju:
+- **Mrav** = odluke o turi / kretanju po grafu (odabir sljedećeg čvora i auta u jednom koraku).
+- **Automobil** = vozilo na bridu; nikad ne nazivaj mrava automobilom.
+- **-na, -nb** = parametri za **kretanje po turi** (odabir sljedećeg čvora; agregirani tau/eta po bridu).
+- **-ca, -cb** = parametri za **izbor automobila** na odabranom bridu.
+- Return komponenta u policyju (ako je uključena) koristi `alphaCars`/`betaCars` (return je povezan s automobilom/switchom).

@@ -1,0 +1,265 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "C/C++: gnu build debug",
+			"command": "/usr/bin/g++",
+			"args": [
+				"-g",
+				"-std=c++17",
+				"-Iinclude",
+				"source/main.cpp",
+				"source/params_cli.cpp",
+				"source/parser.cpp",
+				"source/colony.cpp",
+				"source/runner.cpp",
+				"source/candidate_list.cpp",
+				"source/antPolicy.cpp",
+				"source/cost_model.cpp",
+				"source/pheromone_model.cpp",
+				"source/FixedTourCarAssignerDP.cpp",
+				"source/selfTest.cpp",
+				"source/TwoOptLocalSearch.cpp",
+				"source/fixedTourCarAssigner_adapter.cpp",
+				"source/solutionIO.cpp",
+				"source/runRecorder.cpp",
+				"source/logger.cpp",
+				"source/ReallocationLocalSearch.cpp",
+				"source/ReinsertionLocalSearch.cpp",
+				"source/LkLiteLocalSearch.cpp",
+				"source/ThreeOptLiteLocalSearch.cpp",
+				"source/LinKernighanLocalSearch.cpp",
+				"source/ThreeOptLocalSearch.cpp",
+				"source/CachedFixedTourCarAssigner.cpp",
+				"source/intensifier.cpp",
+				"source/research/intensifier_binomial_logger.cpp",
+				"source/research/surrogate_correlation_logger.cpp",
+				"-o",
+				"${workspaceFolder}/build/main"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/clang++"
+		},
+		{
+			"type": "cppbuild",
+			"label": "C/C++: gnu build release",
+			"command": "/usr/bin/g++",
+			"args": [
+				"-O2",
+				"-std=c++17",
+				"-Iinclude",
+				"source/main.cpp",
+				"source/params_cli.cpp",
+				"source/parser.cpp",
+				"source/colony.cpp",
+				"source/runner.cpp",
+				"source/candidate_list.cpp",
+				"source/antPolicy.cpp",
+				"source/cost_model.cpp",
+				"source/pheromone_model.cpp",
+				"source/FixedTourCarAssignerDP.cpp",
+				"source/selfTest.cpp",
+				"source/TwoOptLocalSearch.cpp",
+				"source/fixedTourCarAssigner_adapter.cpp",
+				"source/solutionIO.cpp",
+				"source/runRecorder.cpp",
+				"source/logger.cpp",
+				"source/ReallocationLocalSearch.cpp",
+				"source/ReinsertionLocalSearch.cpp",
+				"source/LkLiteLocalSearch.cpp",
+				"source/ThreeOptLiteLocalSearch.cpp",
+				"source/LinKernighanLocalSearch.cpp",
+				"source/ThreeOptLocalSearch.cpp",
+				"source/CachedFixedTourCarAssigner.cpp",
+				"source/intensifier.cpp",
+				"source/research/intensifier_binomial_logger.cpp",
+				"source/research/surrogate_correlation_logger.cpp",
+				"-o",
+				"${workspaceFolder}/build/main"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/clang++"
+		},
+		{
+			"type": "cppbuild",
+			"label": "C/C++: project build debug",
+			"command": "/usr/bin/clang++",
+			"args": [
+				"-fcolor-diagnostics",
+				"-fansi-escape-codes",
+				"-g",
+				"-std=c++17",
+				"-Iinclude",
+				"source/main.cpp",
+				"source/params_cli.cpp",
+				"source/parser.cpp",
+				"source/colony.cpp",
+				"source/runner.cpp",
+				"source/candidate_list.cpp",
+				"source/antPolicy.cpp",
+				"source/cost_model.cpp",
+				"source/pheromone_model.cpp",
+				"source/FixedTourCarAssignerDP.cpp",
+				"source/selfTest.cpp",
+				"source/TwoOptLocalSearch.cpp",
+				"source/fixedTourCarAssigner_adapter.cpp",
+				"source/solutionIO.cpp",
+				"source/runRecorder.cpp",
+				"source/logger.cpp",
+				"source/ReallocationLocalSearch.cpp",
+				"source/ReinsertionLocalSearch.cpp",
+				"source/LkLiteLocalSearch.cpp",
+				"source/ThreeOptLiteLocalSearch.cpp",
+				"source/LinKernighanLocalSearch.cpp",
+				"source/ThreeOptLocalSearch.cpp",
+				"source/CachedFixedTourCarAssigner.cpp",
+				"source/intensifier.cpp",
+				"source/research/intensifier_binomial_logger.cpp",
+				"source/research/surrogate_correlation_logger.cpp",
+				"-o",
+				"${workspaceFolder}/build/main"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/clang++"
+		},
+		{
+			"type": "cppbuild",
+			"label": "C/C++: project build release",
+			"command": "/usr/bin/clang++",
+			"args": [
+				"-fcolor-diagnostics",
+				"-fansi-escape-codes",
+				"-O3","-march=native",
+				"-std=c++17",
+				"-Iinclude",
+				"source/main.cpp",
+				"source/params_cli.cpp",
+				"source/parser.cpp",
+				"source/colony.cpp",
+				"source/runner.cpp",
+				"source/candidate_list.cpp",
+				"source/antPolicy.cpp",
+				"source/cost_model.cpp",
+				"source/pheromone_model.cpp",
+				"source/FixedTourCarAssignerDP.cpp",
+				"source/selfTest.cpp",
+				"source/TwoOptLocalSearch.cpp",
+				"source/fixedTourCarAssigner_adapter.cpp",
+				"source/solutionIO.cpp",
+				"source/runRecorder.cpp",
+				"source/logger.cpp",
+				"source/ReallocationLocalSearch.cpp",
+				"source/ReinsertionLocalSearch.cpp",
+				"source/LkLiteLocalSearch.cpp",
+				"source/ThreeOptLiteLocalSearch.cpp",
+				"source/LinKernighanLocalSearch.cpp",
+				"source/ThreeOptLocalSearch.cpp",
+				"source/CachedFixedTourCarAssigner.cpp",
+				"source/intensifier.cpp",
+				"source/research/intensifier_binomial_logger.cpp",
+				"source/research/surrogate_correlation_logger.cpp",
+				"-o",
+				"${workspaceFolder}/build/main"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/clang++"
+		},
+		{
+			"type": "cppbuild",
+			"label": "C/C++: clang build active file",
+			"command": "/usr/bin/clang",
+			"args": [
+				"-fcolor-diagnostics",
+				"-fansi-escape-codes",
+				"-g",
+				"${file}",
+				"-o",
+				"${fileDirname}/${fileBasenameNoExtension}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/clang"
+		},
+		{
+			"type": "cppbuild",
+			"label": "C/C++: clang++ build with AddressSanitizer",
+			"command": "/usr/bin/clang++",
+			"args": [
+				"-fcolor-diagnostics",
+				"-fansi-escape-codes",
+				"-g",
+				"-fsanitize=address",
+				"-fno-omit-frame-pointer",
+				"-O1",
+				"-std=c++17",
+				"-Iinclude",
+				"source/main.cpp",
+				"source/params_cli.cpp",
+				"source/parser.cpp",
+				"source/colony.cpp",
+				"source/runner.cpp",
+				"source/candidate_list.cpp",
+				"source/antPolicy.cpp",
+				"source/cost_model.cpp",
+				"source/pheromone_model.cpp",
+				"source/FixedTourCarAssignerDP.cpp",
+				"source/selfTest.cpp",
+				"source/TwoOptLocalSearch.cpp",
+				"source/fixedTourCarAssigner_adapter.cpp",
+				"source/solutionIO.cpp",
+				"source/runRecorder.cpp",
+				"source/logger.cpp",
+				"source/ReallocationLocalSearch.cpp",
+				"source/ReinsertionLocalSearch.cpp",
+				"source/LkLiteLocalSearch.cpp",
+				"source/ThreeOptLiteLocalSearch.cpp",
+				"source/LinKernighanLocalSearch.cpp",
+				"source/ThreeOptLocalSearch.cpp",
+				"source/CachedFixedTourCarAssigner.cpp",
+				"source/intensifier.cpp",
+				"source/research/intensifier_binomial_logger.cpp",
+				"source/research/surrogate_correlation_logger.cpp",
+				"-o",
+				"${workspaceFolder}/build/main_asan"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/bin/clang++ with AddressSanitizer"
+		}
+	]
+}
