@@ -53,3 +53,10 @@ The instance is correctly named **BrasilPR25n** throughout the paper and XLSX fi
 
 ## Date
 Data collected: 2025–2026. Uploaded to repository: June 2026.
+
+## License
+This dataset is released under the [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) license. You are free to share and adapt the data for any purpose, provided appropriate credit is given. Please cite:
+
+> Elvis Popović, "A Hybrid ACO Algorithm for the Car Rental Salesman Problem", Springer Nature Soft Computing (submitted 2026). Data: https://github.com/ElvisPopovicOpt/CaRS1
+
+Source code in this repository (`include/`, `source/`) is licensed separately under the [MIT License](../LICENSE).
