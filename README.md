@@ -1,77 +1,77 @@
-# ACO za CaRS i TSP Probleme
+# ACO for the CaRS and TSP Problems
 
-Ant Colony Optimization (ACO) algoritam za rješavanje **CaRS (Car Rental Salesman)** i **TSP (Traveling Salesman Problem)** problema.
+Ant Colony Optimization (ACO) algorithm for solving the **CaRS (Car Rental Salesman)** and **TSP (Traveling Salesman Problem)** problems.
 
-## 📋 Opis
+## 📋 Overview
 
-Projekt implementira **MMAS (Max-Min Ant System)** i **TBAS (Three Bounds Ant System)** varijante ACO algoritma s naprednim optimizacijama. Model se bira pomoću CLI parametra `--tbas` (0 = MMAS, default; 1 = TBAS).
+The project implements the **MMAS (Max-Min Ant System)** and **TBAS (Three Bounds Ant System)** variants of the ACO algorithm with advanced optimizations. The model is selected via the CLI parameter `--tbas` (0 = MMAS, default; 1 = TBAS).
 
-- **CaRS problem**: Hamiltonova tura s automobilima koji se mogu mijenjati na turi (stari se vraća u čvor iznajmljivanja, novi ide dalje)
-- **TSP problem**: Klasični TSP (tretira se kao CaRS s jednim automobilom)
+- **CaRS problem**: a Hamiltonian tour with cars that can be swapped along the tour (the old car returns to its rental node, the new one continues)
+- **TSP problem**: classic TSP (treated as CaRS with a single car)
 
-## 🏗️ Arhitektura
+## 🏗️ Architecture
 
-### Glavne komponente
+### Main components
 
-1. **Colony** (`colony.cpp`) - glavna petlja algoritma
-   - Dvofazno rangiranje mrava (surrogate + DP evaluacija)
+1. **Colony** (`colony.cpp`) - main algorithm loop
+   - Two-phase ant ranking (surrogate + DP evaluation)
    - Elite management
    - Stagnation handling (LK-lite, 3-opt-lite, kick)
 
-2. **Feromonski Modeli** (`pheromone_model.cpp`):
-   - **PheromoneModelMMASMove** - MMAS feromon model
-     - Move feromoni: `τ(car, i→j)`
-     - Return feromoni (za CaRS): `τ(car, from→to)`
-     - Ranked update (top-W rješenja)
+2. **Pheromone Models** (`pheromone_model.cpp`):
+   - **PheromoneModelMMASMove** - MMAS pheromone model
+     - Move pheromones: `τ(car, i→j)`
+     - Return pheromones (for CaRS): `τ(car, from→to)`
+     - Ranked update (top-W solutions)
      - Archive memory
-     - Trail smoothing na stagnaciju
-     - Evaporacija feromona
-   - **PheromoneModelTBASMove** - TBAS feromon model
-     - Tri granice: `τ_LB`, `τ_UB`, `τ_CB`
-     - Q varijabla: `Q_i = Q_{i-1} / (1 - ρ)`
-     - Clipping procedura (bez evaporacije)
-     - Ranked update (top-W rješenja)
+     - Trail smoothing on stagnation
+     - Pheromone evaporation
+   - **PheromoneModelTBASMove** - TBAS pheromone model
+     - Three bounds: `τ_LB`, `τ_UB`, `τ_CB`
+     - Q variable: `Q_i = Q_{i-1} / (1 - ρ)`
+     - Clipping procedure (no evaporation)
+     - Ranked update (top-W solutions)
      - Archive memory
-     - Trail smoothing (bez evaporacije)
+     - Trail smoothing (no evaporation)
 
-3. **FixedTourCarAssignerDP** (`FixedTourCarAssignerDP.cpp`) - DP za optimalan car assignment
-   - Optimalna segmentacija ture po automobilima
-   - View metode za local search evaluacije
-   - Fallback mehanizam (maxSegmentLen)
+3. **FixedTourCarAssignerDP** (`FixedTourCarAssignerDP.cpp`) - DP for optimal car assignment
+   - Optimal tour segmentation per car
+   - View methods for local search evaluations
+   - Fallback mechanism (maxSegmentLen)
 
 4. **CachedFixedTourCarAssigner** (`CachedFixedTourCarAssigner.cpp`) - DP cache
    - Canonical key (rotation + reverse)
    - FIFO eviction
-   - Thread-safe opcija
+   - Thread-safe option
 
 5. **Local Search Chain**:
-   - **TwoOptLocalSearch** - 2-opt s DP view evaluacijama
-   - **RelocationLocalSearch** - relocation (or-opt) s DP view evaluacijama
+   - **TwoOptLocalSearch** - 2-opt with DP view evaluations
+   - **RelocationLocalSearch** - relocation (or-opt) with DP view evaluations
    - Chain: TwoOpt → Relocation → TwoOpt
 
-6. **Polish algoritmi**:
-   - **LkLiteLocalSearch** - Lin-Kernighan lite varijanta
-   - **ThreeOptLiteLocalSearch** - 3-opt lite varijanta
-   - Auto-odabir ovisno o simetriji instance
+6. **Polish algorithms**:
+   - **LkLiteLocalSearch** - Lin-Kernighan lite variant
+   - **ThreeOptLiteLocalSearch** - 3-opt lite variant
+   - Auto-selection based on instance symmetry
 
-7. **AntPolicyCandidateListRoulette** (`antPolicy.cpp`) - konstrukcija tura
+7. **AntPolicyCandidateListRoulette** (`antPolicy.cpp`) - tour construction
    - Candidate list support
    - q0 exploitation/exploration
-   - Return cost aware (za CaRS)
+   - Return cost aware (for CaRS)
 
-## 🚀 Kompilacija
+## 🚀 Build
 
 ```bash
-# Kompajliranje
+# Build
 make
 
-# Ili direktno:
+# Or directly:
 g++ -std=c++17 -O3 -o build/main source/*.cpp -I include
 ```
 
-## 💻 Korištenje
+## 💻 Usage
 
-### Osnovni primjer
+### Basic example
 
 ```bash
 ./build/main --filename inputData/BrasilMG30n.car \
@@ -83,144 +83,140 @@ g++ -std=c++17 -O3 -o build/main source/*.cpp -I include
              --carMaxMin 50
 ```
 
-### Glavni parametri
+### Main parameters
 
-| Parametar | Short | Default | Opis |
+| Parameter | Short | Default | Description |
 |-----------|-------|---------|------|
-| `filename` | `f` | - | Ulazna instanca (.car, .tsp, .atsp) |
-| `iterations` | `it` | 1000 | Broj iteracija po runu |
-| `antsN` | `k` | 100 | Broj mrava po iteraciji |
-| `favorites` | `fv` | 20 | Candidate list veličina (preporučeno: 0.5N do 0.67N) |
-| `stagnation` | `st` | 30 | Prag stagnacije za polish/kick |
-| `carRho` | `cr` | 0.1 | Evaporacija feromona (0,1) |
-| `carMaxMin` | `cm` | 0 | Max-min omjer (0 = disabled) |
-| `eliteKAnts` | - | 1 | Broj elite mrava za ranked update |
-| `policyQ0` | `pQ0` | 0.1 | q0 parametar (exploitation vjerojatnost) |
-| `adaptiveQ0` | `aq0` | 0 | Omogući dinamički q0 (0=disabled, 1=enabled) |
-| `q0Start` | `q0s` | 0.0 | Početna vrijednost q0 (eksploracija) |
-| `q0End` | `q0e` | 0.9 | Konačna vrijednost q0 (eksploatacija) |
+| `filename` | `f` | - | Input instance (.car, .tsp, .atsp) |
+| `iterations` | `it` | 1000 | Number of iterations per run |
+| `antsN` | `k` | 100 | Number of ants per iteration |
+| `favorites` | `fv` | 20 | Candidate list size (recommended: 0.5N to 0.67N) |
+| `stagnation` | `st` | 30 | Stagnation threshold for polish/kick |
+| `carRho` | `cr` | 0.1 | Pheromone evaporation rate (0,1) |
+| `carMaxMin` | `cm` | 0 | Max-min ratio (0 = disabled) |
+| `eliteKAnts` | - | 1 | Number of elite ants for ranked update |
+| `policyQ0` | `pQ0` | 0.1 | q0 parameter (exploitation probability) |
+| `adaptiveQ0` | `aq0` | 0 | Enable dynamic q0 (0=disabled, 1=enabled) |
+| `q0Start` | `q0s` | 0.0 | Initial q0 value (exploration) |
+| `q0End` | `q0e` | 0.9 | Final q0 value (exploitation) |
 
-### Napredni parametri
+### Advanced parameters
 
-- `--pBestCars <p>` - pBest override za tauMin (0<p<1)
-- `--smGammaCars <γ>` - Trail smoothing jačina [0,1]
-- `--restartTargetCars <mid|tauMax>` - Restart cilj
-- `--exploreCars <0|1>` - Exploration faza nakon stagnacije
+- `--pBestCars <p>` - pBest override for tauMin (0<p<1)
+- `--smGammaCars <γ>` - Trail smoothing strength [0,1]
+- `--restartTargetCars <mid|tauMax>` - Restart target
+- `--exploreCars <0|1>` - Exploration phase after stagnation
 - `--globalBestPeriod <n>` - Global-best deposit period (-1=off, 0=auto, >0=fixed)
-- `--dpCacheCapacity <n>` - DP cache kapacitet (default: 5000)
-- `--dpMaxSegmentLenOffset <n>` - Offset za max segment length (default: 5)
+- `--dpCacheCapacity <n>` - DP cache capacity (default: 5000)
+- `--dpMaxSegmentLenOffset <n>` - Offset for max segment length (default: 5)
 - `--lsTopW <n>` / `--lsw <n>` - Local search width: number of elite solutions to improve with LS per iteration (0=dynamic: starts at 2, grows only during stagnation, >0=fixed, default: 2)
 
-Puni popis parametara: `./build/main --help`
+Full parameter list: `./build/main --help`
 
-## ✨ Ključne značajke
+## ✨ Key features
 
-### 1. Dvofazno rangiranje mrava
+### 1. Two-phase ant ranking
 
-- **Faza 1**: Surrogate evaluacija za sve mrave (min travel cost po bridu)
-- **Faza 2**: DP `evaluateCost()` samo za shortlist kandidate (max 30% mrava)
-- Wildcards za diverzitet (10% mrava, slučajno iz ostatka)
-- **Optimizacija**: Min travel cost se precompute-ira jednom na početku (10-20% brže)
+- **Phase 1**: surrogate evaluation for all ants (min travel cost per edge)
+- **Phase 2**: DP `evaluateCost()` only for shortlisted candidates (max 30% of ants)
+- Wildcards for diversity (10% of ants, randomly chosen from the rest)
+- **Optimization**: min travel cost is precomputed once at the start (10-20% faster)
 
-**Prednost**: Ubrzava algoritam za velike instance (N≈300, antsN=200) bez gubitka kvalitete.
+**Benefit**: speeds up the algorithm for large instances (N≈300, antsN=200) without losing quality.
 
 ### 2. DP Cache
 
-- Canonical key (rotation + reverse canonicalizacija)
-- FIFO eviction (default: 5000 zapisa)
-- Thread-safe opcija
+- Canonical key (rotation + reverse canonicalization)
+- FIFO eviction (default: 5000 entries)
+- Thread-safe option
 
-**Prednost**: Izbjegava ponovne DP evaluacije nakon LS/polisha.
+**Benefit**: avoids repeated DP evaluations after LS/polish.
 
-### 3. Local Search optimizacije
+### 3. Local Search optimizations
 
-- **DP view metode**: LS evaluira poteze bez punog `reassignCars` poziva
-- **Surrogate filtering**: Relocation koristi surrogate za pre-filtering
-- **Chain optimizacija**: TwoOpt → Relocation → TwoOpt
+- **DP view methods**: LS evaluates moves without a full `reassignCars` call
+- **Surrogate filtering**: Relocation uses a surrogate for pre-filtering
+- **Chain optimization**: TwoOpt → Relocation → TwoOpt
 
 ### 4. Stagnation handling
 
-- **LK-lite** ili **3-opt-lite** (auto-odabir ovisno o simetriji)
-- **Double-bridge kick** (ako polish ne uspije)
-- **Trail smoothing** u feromon modelu (nakon stagnacije)
+- **LK-lite** or **3-opt-lite** (auto-selected based on symmetry)
+- **Double-bridge kick** (if polish fails)
+- **Trail smoothing** in the pheromone model (after stagnation)
 
-### 5. Dinamičke Veličine
+### 5. Dynamic parameters
 
-Algoritam koristi nekoliko dinamičkih mehanizama koji se prilagođavaju tokom izvršavanja:
+The algorithm uses several dynamic mechanisms that adapt during execution:
 
-#### 5.1. Dinamički q0
+#### 5.1. Dynamic q0
 
-- **Adaptivni q0**: Linearno povećanje tijekom iteracija
-- **Rane iteracije**: Niži q0 → više eksploracije
-- **Kasne iteracije**: Viši q0 → više eksploatacije
-- **Učinak**: 5-10% brža konvergencija
+- **Adaptive q0**: linear increase over iterations
+- **Early iterations**: lower q0 → more exploration
+- **Late iterations**: higher q0 → more exploitation
+- **Effect**: 5-10% faster convergence
 
-**Korištenje**: `--adaptiveQ0 1` (ili `-aq0 1`) s opcionalnim `--q0Start` i `--q0End`
+**Usage**: `--adaptiveQ0 1` (or `-aq0 1`) with optional `--q0Start` and `--q0End`
 
-#### 5.2. Dinamički LSW (Local Search Width)
+#### 5.2. Dynamic LSW (Local Search Width)
 
-- **Normalno**: LSW = 2 (brže izvršavanje)
-- **Tokom stagnacije**: LSW raste do min(K, 5) (više mrava se poboljšava LS-om)
-- **Nakon stagnacije**: LSW se vraća na 2
+- **Normally**: LSW = 2 (faster execution)
+- **During stagnation**: LSW grows up to min(K, 5) (more ants improved with LS)
+- **After stagnation**: LSW returns to 2
 
-**Korištenje**: `--lsTopW 0` (dinamički, default) ili `--lsTopW N` (fiksni)
+**Usage**: `--lsTopW 0` (dynamic, default) or `--lsTopW N` (fixed)
 
-#### 5.3. Trail Smoothing (Feromon Smoothing)
+#### 5.3. Trail Smoothing (Pheromone Smoothing)
 
-- Aktivira se tokom stagnacije (2× stagnation prag)
-- Smanjuje feromone prema baznoj vrijednosti ($\tau_{\text{base}}$)
-- Omogućava eksploraciju novih područja
+- Activates during stagnation (2× stagnation threshold)
+- Reduces pheromones toward a base value ($\tau_{\text{base}}$)
+- Enables exploration of new regions
 
-**Parametri**: `--smGammaCars <γ>`, `--restartTargetCars <mid|tauMax>`
+**Parameters**: `--smGammaCars <γ>`, `--restartTargetCars <mid|tauMax>`
 
-#### 5.4. Exploration Faza (Pojačana Evaporacija)
+#### 5.4. Exploration Phase (Increased Evaporation)
 
-- Aktivira se nakon trail smoothing-a
-- Povećava efektivnu evaporaciju ($\rho_{\text{eff}} = \rho \cdot \text{multiplier}$)
-- Traje `exploreItersCars` iteracija
+- Activates after trail smoothing
+- Increases effective evaporation ($\rho_{\text{eff}} = \rho \cdot \text{multiplier}$)
+- Lasts `exploreItersCars` iterations
 
-**Parametri**: `--exploreCars <0|1>`, `--exploreItersCars <n>`, `--exploreRhoMultiplier <m>`
-
-Detaljnije: vidi `docs/DOKUMENTACIJA.md` - poglavlje "Dinamičke Veličine"
+**Parameters**: `--exploreCars <0|1>`, `--exploreItersCars <n>`, `--exploreRhoMultiplier <m>`
 
 ### 6. Ranked update
 
-- Top-W rješenja (default: `eliteKAnts`) deponiraju feromone
-- Weighted deposit (bolji mravi = više feromona)
-- Archive memory za dugoročno pamćenje
+- Top-W solutions (default: `eliteKAnts`) deposit pheromones
+- Weighted deposit (better ants = more pheromone)
+- Archive memory for long-term retention
 
 ### 7. Thread-Safety
 
-- Svaki run ima svoju `Colony` instancu s vlastitim RNG-om
-- Feromoni su read-only tijekom konstrukcije
-- DP cache podržava thread-safe opciju
-- Sigurno za paralelne runove
+- Each run has its own `Colony` instance with its own RNG
+- Pheromones are read-only during construction
+- DP cache supports a thread-safe option
+- Safe for parallel runs
 
-## 📁 Struktura projekta
+## 📁 Project structure
 
 ```
-ACO_2026_AI/
-├── include/          # Header fajlovi
-├── source/           # Implementacije
-├── inputData/        # Ulazne instance (.car, .tsp, .atsp)
-├── outputData/       # CSV izlazi (global_best.csv, iteration_best.csv, runs_summary.csv)
-├── docs/             # Detaljna dokumentacija
-│   └── ACO_CaRS_TSP.md  # MMAS dokumentacija
-├── analiza/          # Excel analize
-└── run_*.sh          # Shell skripte za pokretanje
+ACO_CARS/
+├── include/          # Header files
+├── source/           # Implementation files
+├── inputData/        # Input instances (.car, .tsp, .atsp)
+├── outputData/       # CSV outputs (global_best.csv, iteration_best.csv, runs_summary.csv)
+├── data/             # Measurement data accompanying the paper (see data/README.md)
+└── run_*.sh          # Shell scripts for running experiments
 ```
 
-## 📊 Izlazni podaci
+## 📊 Output data
 
-Algoritam generira 3 CSV fajla u `outputData/`:
+The algorithm generates 3 CSV files in `outputData/`:
 
-1. **global_best.csv** - Global best po iteraciji
-2. **iteration_best.csv** - Iteration best po iteraciji
-3. **runs_summary.csv** - Sažetak svih runova
+1. **global_best.csv** - global best per iteration
+2. **iteration_best.csv** - iteration best per iteration
+3. **runs_summary.csv** - summary of all runs
 
-## 🔧 Napredne opcije
+## 🔧 Advanced options
 
-### Self-test (DP konzistentnost)
+### Self-test (DP consistency)
 
 ```bash
 ACO_SELFTEST=1 ./build/main --filename inputData/BrasilMG30n.car
@@ -228,37 +224,17 @@ ACO_SELFTEST=1 ./build/main --filename inputData/BrasilMG30n.car
 
 ### Multi-threaded
 
-Algoritam automatski koristi `hardware_concurrency - 1` dretvi za paralelne runove.
+The algorithm automatically uses `hardware_concurrency - 1` threads for parallel runs.
 
-## 📚 Dokumentacija
+## 🐛 Known limitations
 
-- **Detaljna MMAS dokumentacija**: `docs/ACO_CaRS_TSP.md`
-- **TBAS dokumentacija**: `docs/DOKUMENTACIJA.tex` i `docs/DOKUMENTACIJA_EN.tex` (sekcija "Feromonski Modeli")
-- **Analiza jezgre**: `ANALIZA_JEZGRE.md`
-- **Analiza dvofaznog rangiranja**: `ANALIZA_DVOFAZNOG_RANGIRANJA.md`
+- The DP supports a maximum of 20 cars (bitmask limit)
+- Cache capacity is fixed (default: 5000) - adjustable in `main.cpp`
 
-## 🐛 Poznati problemi / Ograničenja
+## 👤 Author
 
-- DP podržava maksimalno 20 automobila (bitmask ograničenje)
-- Cache capacity je fiksan (default: 5000) - može se podesiti u `main.cpp`
+Elvis Popović — Faculty of Organization and Informatics, University of Zagreb.
 
-## 📝 Changelog
+## 📄 License
 
-### Najnovije promjene
-
-- ✅ **Dinamički q0**: Linearno povećanje q0 tijekom iteracija (5-10% brža konvergencija)
-- ✅ **Precompute MinTravel**: Cache za min travel cost (10-20% brže surrogate evaluacija)
-- ✅ **Thread-safety**: DP cache thread-safe opcija za paralelne runove
-- ✅ **Dvofazno rangiranje**: Surrogate evaluacija (min travel cost) umjesto `costModel_->evaluate()`
-- ✅ **ShortlistM**: Smanjeno na max 30% mrava (umjesto 60%)
-- ✅ **DP pozivi**: Dodani `reassignCars` nakon polisha (LK-lite, 3-opt-lite)
-- ✅ **DP pozivi**: Osigurana konzistentnost nakon LS lanca
-- ✅ **TwoOptLocalSearch**: Koristi `evaluateCostViewScratch` umjesto `evaluateCostView`
-
-## 👤 Autor
-
-Projekt za ACO 2026 - Ant Colony Optimization za CaRS i TSP probleme.
-
-## 📄 Licenca
-
-[Ovdje dodajte licencu ako je potrebno]
+Source code is released under the [MIT License](LICENSE). Measurement data in `data/` is released under [CC BY 4.0](data/README.md#license).
