@@ -16,32 +16,32 @@ namespace localSearch
 
 struct LkLiteOptions
 {
-    // Koliko pokušaja (svaki pokušaj = 1x dp->reassignCars).
+    // Number of attempts (each attempt = one dp->reassignCars call).
     int attempts = 6;
 
-    // Duljina lanca 2-opt poteza (surrogate vođeno).
+    // Length of the surrogate-guided 2-opt move chain.
     int chainLen = 12;
 
-    // Koliko random i-pozicija po koraku (svaki puta gleda topKPerI kandidata).
+    // Random i-positions tried per step (each looks at topKPerI candidates).
     int triesPerStep = 40;
 
-    // Koliko kandidata (iz candidate liste) uzeti po anchoru za jedan i.
+    // Candidates taken from the candidate list per anchor for a given i.
     int topKPerI = 8;
 
-    // Ako true: radi potez samo ako surrogate delta < -eps
+    // If true, only apply a move when surrogate delta < -eps.
     bool requireNegativeSurrogate = true;
 
     double eps = 1e-12;
 
-    // Candidate list (obavezno)
+    // Candidate list (required).
     std::shared_ptr<const aco::CandidateListCache> cand = nullptr;
 
-    // Opcionalno: nakon uspješnog LK-lite verify, pusti polish LS (npr. 2opt+reloc+2opt)
+    // Optional polish LS (e.g. 2opt+reloc+2opt) run after a successful LK-lite verify.
     std::shared_ptr<const aco::ILocalSearch> polish = nullptr;
 };
 
-// LK-lite: radi chain 2-opt poteza vođenih jeftinim surrogate-om (minTravel),
-// pa 1x DP verify (reassignCars). Aktivira se na stagnaciju.
+// LK-lite: runs a chain of 2-opt moves guided by a cheap surrogate (minTravel),
+// then verifies once via the DP (reassignCars). Triggered on stagnation.
 class LkLiteLocalSearch final : public aco::ILocalSearch
 {
 public:
@@ -49,7 +49,7 @@ public:
                       LkLiteOptions opt,
                       std::shared_ptr<FixedTourCarAssignerDP> dp);
 
-    // Reset RNG stanja (pozovi na početku stagnation-eventa s deriviranim seedom)
+    // Resets RNG state; call at the start of a stagnation event with a derived seed.
     void resetSeed(uint64_t seed) const override;
 
     void improve(aco::Solution& s, double& cost) const override;

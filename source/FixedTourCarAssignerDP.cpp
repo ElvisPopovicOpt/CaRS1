@@ -30,7 +30,7 @@ void FixedTourCarAssignerDP::validateTourOrThrow_(const std::vector<int>& nodes)
     if (nodes[0] != 0)
         throw std::runtime_error("FixedTourCarAssignerDP: node[0] must be 0 (fixed start).");
 
-    // provjera permutacije (opcionalno)
+    // permutation check (optional)
     std::vector<char> seen(static_cast<std::size_t>(N), 0);
     for (int k = 0; k < N; ++k)
     {
@@ -48,18 +48,18 @@ int FixedTourCarAssignerDP::normalizeMaxSegLen_(int L) const
     const int N = inst_->n();
     const int C = inst_->cars();
 
-    if (L <= 0) return -1;   // <=0 tretiramo kao "bez limita"
+    if (L <= 0) return -1;   // <=0 means "no limit"
     if (N <= 0) return -1;
 
-    // Nužan uvjet izvedivosti s limitom: trebaš pokriti N edgeova s najviše C segmenata,
-    // svaki segment max duljine L => C*L >= N.
+    // Necessary feasibility condition with a limit: N edges must be covered by at most
+    // C segments, each of length at most L => C*L >= N.
     if (C > 0)
     {
         const int minL = (N + C - 1) / C; // ceil(N/C)
         if (L < minL) L = minL;
     }
 
-    if (L >= N) return -1;   // efektivno bez limita
+    if (L >= N) return -1;   // effectively unlimited
     return L;
 }
 
@@ -103,7 +103,7 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
     if (C > 20)
         throw std::runtime_error("FixedTourCarAssignerDP: too many cars for bitmask DP (C > 20).");
 
-    // FAST-PATH: čisti TSP (C==1) => nema switching-a i nema returnCost.
+    // Fast path: pure TSP (C==1) => no switching and no returnCost.
     if (C == 1)
     {
         double sum = 0.0;
@@ -123,7 +123,7 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
     const int M = 1 << C;
     const double INF = std::numeric_limits<double>::infinity();
 
-    // v[0..N], closure v[N]=v<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>
+    // v[0..N], closure v[N]=v[0]
     std::vector<int> v(static_cast<std::size_t>(N + 1));
     for (int i = 0; i < N; ++i) v[static_cast<std::size_t>(i)] = nodes[static_cast<std::size_t>(i)];
     v[static_cast<std::size_t>(N)] = nodes[0];
@@ -156,8 +156,8 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
 
     };
 
-    // dp[t][mask] = minimalni trošak da pokrijemo edge-ove 0..t-1,
-    // koristeći aute iz mask (svaki auto najviše jednom).
+    // dp[t][mask] = minimal cost to cover edges 0..t-1,
+    // using cars from mask (each car at most once).
     std::vector<double> dp(static_cast<std::size_t>((N + 1) * M), INF);
 
     struct Parent
@@ -186,7 +186,7 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
             const double base = dp[idx(s, mask)];
             if (base == INF) continue;
 
-            // odaberi "novi" auto koji još nije korišten
+            // pick a "new" car not yet used
             for (int c = 0; c < C; ++c)
             {
                 const int bit = 1 << c;
@@ -194,7 +194,7 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
 
                 const int nmask = mask | bit;
 
-                // odaberi kraj segmenta
+                // pick the end of the segment
                 for (int t = s + 1; t <= tMax; ++t)
                 {
                     const double cand = base + segCost(c, s, t);
@@ -213,7 +213,7 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
         }
     }
 
-    // najbolji završetak: dp[N][mask] za bilo koji mask
+    // best ending: dp[N][mask] for any mask
     double bestCost = INF;
     int bestMask = -1;
     for (int mask = 0; mask < M; ++mask)
@@ -231,11 +231,11 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithMaxSegLen_(const std::
 
     if (bestCost == INF)
     {
-        // neizvedivo (može biti zbog maxSegmentLen ili stvarno zbog nedostatka auta)
+        // infeasible (could be due to maxSegmentLen or a genuine lack of cars)
         return res;
     }
 
-    // Rekonstrukcija: idemo unatrag od (N, bestMask), punimo carPerEdge na [s,t)
+    // Reconstruction: walk backward from (N, bestMask), filling carPerEdge on [s,t)
     int t = N;
     int mask = bestMask;
     while (t > 0)
@@ -262,19 +262,19 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithFallback_(const std::v
     const int N = inst_->n();
     const double INF = std::numeric_limits<double>::infinity();
 
-    // Ako je maxSegmentLen <=0 ili fallback ugašen, samo jednom.
+    // If maxSegmentLen <=0 or fallback is disabled, run only once.
     if (!opt_.fallbackToUnlimitedOnInf)
         return optimizeWithMaxSegLen_(nodes, opt_.maxSegmentLen);
 
     int L = opt_.maxSegmentLen;
 
-    // Prvi pokušaj s user L (može biti -1)
+    // First attempt with the user-supplied L (may be -1)
     {
         auto res = optimizeWithMaxSegLen_(nodes, L);
         if (std::isfinite(res.cost) || L <= 0) return res;
     }
 
-    // Retry s većim L
+    // Retry with a larger L
     L = std::max(1, L);
     for (int r = 0; r < std::max(0, opt_.fallbackMaxRetries); ++r)
     {
@@ -287,10 +287,10 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimizeWithFallback_(const std::v
         if (std::isfinite(res.cost)) return res;
     }
 
-    // Finalno: safe -1 (točno optimalno, najsporije)
+    // Final: safe -1 (exact optimum, slowest)
     {
         auto res = optimizeWithMaxSegLen_(nodes, -1);
-        return res; // može biti INF ako je stvarno neizvedivo (premalo auta)
+        return res; // may be INF if truly infeasible (too few cars)
     }
 }
 
@@ -302,7 +302,7 @@ CarAssignmentDPResult FixedTourCarAssignerDP::optimize(const std::vector<int>& n
     }
     else
     {
-        // minimalne provjere
+        // minimal checks
         const int N = inst_->n();
         if (static_cast<int>(nodes.size()) != N)
             throw std::runtime_error("FixedTourCarAssignerDP: nodes.size() != inst->n()");
@@ -322,7 +322,7 @@ double FixedTourCarAssignerDP::reassignCars(const std::vector<int>& nodes,
 }
 
 // -------
-// cost-only DP, view varijanta
+// cost-only DP, view variant
 
 double FixedTourCarAssignerDP::evaluateCostViewWithMaxSegLen_(const std::function<int(int)>& getNode,
                                                              int maxSegmentLen) const
@@ -334,7 +334,7 @@ double FixedTourCarAssignerDP::evaluateCostViewWithMaxSegLen_(const std::functio
     if (C <= 0) throw std::runtime_error("FixedTourCarAssignerDP: inst->cars() <= 0");
     if (C > 20) throw std::runtime_error("FixedTourCarAssignerDP: too many cars for bitmask DP (C > 20).");
 
-    // FAST-PATH: čisti TSP (C==1) => nema switching-a i nema returnCost.
+    // Fast path: pure TSP (C==1) => no switching and no returnCost.
     if (C == 1)
     {
         double sum = 0.0;
@@ -354,7 +354,7 @@ double FixedTourCarAssignerDP::evaluateCostViewWithMaxSegLen_(const std::functio
     const double INF = std::numeric_limits<double>::infinity();
 
     auto nodeAt = [&](int idx) -> int {
-        // closure: v[N] = v<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>
+        // closure: v[N] = v[0]
         if (idx == N) return getNode(0);
         return getNode(idx);
     };
@@ -440,14 +440,14 @@ double FixedTourCarAssignerDP::evaluateCostViewWithMaxSegLenScratch_(
     if (C <= 0) throw std::runtime_error("FixedTourCarAssignerDP: inst->cars() <= 0");
     if (C > 20) throw std::runtime_error("FixedTourCarAssignerDP: too many cars for bitmask DP (C > 20).");
 
-    // FAST-PATH: čisti TSP (C==1) => nema switching-a i nema returnCost.
+    // Fast path: pure TSP (C==1) => no switching and no returnCost.
     if (C == 1)
     {
         double sum = 0.0;
         for (int k = 0; k < N; ++k)
         {
             const int a = getNode(k);
-            const int b = getNode(k + 1); // očekujemo closure: getNode(N) == getNode(0)
+            const int b = getNode(k + 1); // expects closure: getNode(N) == getNode(0)
             sum += inst_->travelCost(0, a, b);
         }
         return sum;
@@ -462,14 +462,14 @@ double FixedTourCarAssignerDP::evaluateCostViewWithMaxSegLenScratch_(
     const double INF = std::numeric_limits<double>::infinity();
 
     auto nodeAt = [&](int idx) -> int {
-        return getNode(idx); // očekujemo da idx ide 0..N
+        return getNode(idx); // expects idx to range over 0..N
     };
 
     auto prefAt = [&](int c, int t) -> double& {
         return scratch.pref[(std::size_t)c * (std::size_t)(N + 1) + (std::size_t)t];
     };
 
-    // pref fill (ne treba fill cijelog pref, jer ga kompletno prepišeš)
+    // Fill pref (no need to fill it entirely first, since it is fully overwritten)
     for (int c = 0; c < C; ++c)
     {
         prefAt(c, 0) = 0.0;
@@ -489,7 +489,7 @@ double FixedTourCarAssignerDP::evaluateCostViewWithMaxSegLenScratch_(
         return travel + inst_->returnCost(c, endNode, startNode);
     };
 
-    // dp fill INF
+    // Fill dp with INF
     std::fill(scratch.dp.begin(), scratch.dp.end(), INF);
 
     auto idx = [&](int t, int mask) -> std::size_t {
@@ -545,13 +545,13 @@ double FixedTourCarAssignerDP::evaluateCostViewWithFallback_(const std::function
 
     int L = opt_.maxSegmentLen;
 
-    // Prvi pokušaj
+    // First attempt
     {
         const double c0 = evaluateCostViewWithMaxSegLen_(getNode, L);
         if (std::isfinite(c0) || L <= 0) return c0;
     }
 
-    // Retry s većim L
+    // Retry with a larger L
     L = std::max(1, L);
     for (int r = 0; r < std::max(0, opt_.fallbackMaxRetries); ++r)
     {
@@ -564,7 +564,7 @@ double FixedTourCarAssignerDP::evaluateCostViewWithFallback_(const std::function
         if (std::isfinite(cc)) return cc;
     }
 
-    // Finalno: safe -1
+    // Final: safe -1
     return evaluateCostViewWithMaxSegLen_(getNode, -1);
 }
 
@@ -579,11 +579,11 @@ double FixedTourCarAssignerDP::evaluateCostViewScratch(const std::function<int(i
 
     scratch.ensure(N, C);
 
-    // 1) Materijaliziraj turu jednom (uključujući closure)
+    // 1) Materialize the tour once (including closure)
     for (int i = 0; i < N; ++i) scratch.tour[(std::size_t)i] = getNode(i);
     scratch.tour[(std::size_t)N] = scratch.tour[0];
 
-    // 2) Validacija bez alokacija (samo ako je uključena)
+    // 2) Validation without allocations (only if enabled)
     if (opt_.validateTour)
     {
         if (scratch.tour[0] != 0)
@@ -608,15 +608,15 @@ double FixedTourCarAssignerDP::evaluateCostViewScratch(const std::function<int(i
     }
     else
     {
-        // minimalna provjera (ali sad jeftina jer imamo scratch.tour)
+        // minimal check (cheap now since we have scratch.tour)
         if (N > 0 && scratch.tour[0] != 0)
             throw std::runtime_error("FixedTourCarAssignerDP: node[0] must be 0 (fixed start).");
     }
 
-    // 3) DP koristi "fast view" (array access), bez getNode poziva u petljama
+    // 3) DP uses a "fast view" (array access), no getNode calls inside the loops
     auto getNodeFast = [&](int i) -> int { return scratch.tour[(std::size_t)i]; };
 
-    // fallback logika, ali koristi scratch u svakom pokušaju
+    // fallback logic, but uses scratch on every attempt
     if (!opt_.fallbackToUnlimitedOnInf)
         return evaluateCostViewWithMaxSegLenScratch_(getNodeFast, opt_.maxSegmentLen, scratch);
 
@@ -645,7 +645,7 @@ double FixedTourCarAssignerDP::evaluateCostViewScratch(const std::function<int(i
 
 double FixedTourCarAssignerDP::evaluateCostView(const std::function<int(int)>& getNode) const
 {
-    // koristi interni scratch_ (po instanci)
+    // uses the internal per-instance scratch_
     return evaluateCostViewScratch(getNode, scratch_);
 }
 

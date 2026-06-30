@@ -150,37 +150,9 @@ static ProblemType parseProblemTypeOrThrow(const std::unordered_map<std::string,
     const auto t = upper(trim(it->second));
     if (t == "TSP") return ProblemType::TSP;
     if (t == "ATSP") return ProblemType::ATSP;
-    if (t == "CARS") return ProblemType::CaRS;   // not expected, but harmless
-    if (t == "CARSP") return ProblemType::CaRSP; // not expected, but harmless
+    // CaRS/CaRSP are matched case-insensitively (already uppercased above)
     if (t == "CARS") return ProblemType::CaRS;
     if (t == "CARSP") return ProblemType::CaRSP;
-
-    // Your examples are CaRS / CaRSP (case-insensitive -> already upper()):
-    if (t == "CARS") return ProblemType::CaRS;
-    if (t == "CARSP") return ProblemType::CaRSP;
-    if (t == "CARS") return ProblemType::CaRS;
-
-    // Real intended:
-    if (t == "CARS") return ProblemType::CaRS;
-    if (t == "CARSP") return ProblemType::CaRSP;
-
-    // Correct mapping:
-    if (t == "CARS") return ProblemType::CaRS;
-    if (t == "CARSP") return ProblemType::CaRSP;
-
-    // Finally, handle your actual strings after upper():
-    if (t == "CARS") return ProblemType::CaRS;
-    if (t == "CARSP") return ProblemType::CaRSP;
-    if (t == "CARS") return ProblemType::CaRS;
-
-    // But your actual is "CARS"/"CARSP"? Actually it's "CARS"/"CARSP" only if type had no 'a'.
-    // For correctness, also accept "CARS" <-> "CARS" and "CARSP" <-> "CARSP".
-    // If it's "CARS" or "CARSP", it's handled above.
-
-    if (t == "CARS") return ProblemType::CaRS;
-
-    // The actual examples are "CARS"?? Wait: "TYPE : CaRS" -> upper -> "CARS". ok.
-    // "TYPE : CaRSP" -> upper -> "CARSP". ok.
 
     throw ParseError("Unsupported TYPE: " + it->second);
 }
@@ -782,7 +754,6 @@ static Instance parseCaRSOrThrow(
     // CaRS/CaRSP only supports EXPLICIT + FULL_MATRIX per spec.
     const auto ewt = upper(trim(requireHeaderString(h, "EDGE_WEIGHT_TYPE")));
     if (ewt != "EXPLICIT") {
-        // EUC_2D explicitly: error
         throw ParseError("CaRS/CaRSP only supports EDGE_WEIGHT_TYPE EXPLICIT (got " + ewt + ")");
     }
 

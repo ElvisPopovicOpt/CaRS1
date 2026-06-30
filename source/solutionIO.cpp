@@ -3,8 +3,8 @@
 #include <stdexcept>
 #include <algorithm>
 
-#include <parser.hpp>         // cars_tsplib::Instance (prilagodi include)
-#include <solution.hpp>    // aco::Solution (prilagodi include)
+#include <parser.hpp>       // cars_tsplib::Instance
+#include <solution.hpp>     // aco::Solution
 #include <solutionIO.hpp>
 
 namespace solution_io 
@@ -40,7 +40,7 @@ void printSolutionDetailed(std::ostream& os,
         throw std::runtime_error("printSolutionDetailed: solution node size mismatch with instance N");
     }
 
-    // Dopusti TSP/single-car slučaj gdje car vektor može biti prazan ili krive veličine:
+    // Allow the TSP/single-car case where the car vector may be empty or wrongly sized
     const bool hasCarsVector = ((int)s.car.size() == N);
     const bool hasRet = inst->hasReturnCosts();
 
@@ -70,7 +70,7 @@ void printSolutionDetailed(std::ostream& os,
 
         currentCar = hasCarsVector ? s.car[i] : 0;
 
-        // Switch trošak ima smisla samo ako postoje return costs.
+        // Switch cost only makes sense if return costs exist.
         if (hasRet && currentCar != lastCar) {
             const double ret = inst->returnCost(lastCar, u, lastCarNode);
             accum += ret;
@@ -90,8 +90,8 @@ void printSolutionDetailed(std::ostream& os,
            << "  (acc=" << accum << ")\n";
     }
 
-    // Final return ima smisla samo ako postoje return costs.
-    if (hasRet) 
+    // Final return only makes sense if return costs exist.
+    if (hasRet)
     {
         const double finalRet = inst->returnCost(currentCar, s.node[0], lastCarNode);
         accum += finalRet;

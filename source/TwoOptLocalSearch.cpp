@@ -4,19 +4,15 @@
 #include <limits>
 #include <stdexcept>
 #include <iostream>
-#include <parser.hpp>   
+#include <parser.hpp>
 #include <interfaces.hpp>
 
 #include "TwoOptLocalSearch.hpp"
-#include "parser.hpp"          // definicija cars_tsplib::Instance
-#include "candidate_list.hpp"  // samo ako koristiš opt_.cand->candidates()
+#include "parser.hpp"          // cars_tsplib::Instance definition
+#include "candidate_list.hpp"  // aco::CandidateListCache
 
-
-// Ovisno o projektu, ovo može biti drugačije:
-
-#include "candidate_list.hpp"       // aco::CandidateListCache (primjer)
-#include "solution.hpp"                // aco::Solution (primjer)
-#include "FixedTourCarAssignerDP.hpp"  // FixedTourCarAssignerDP (primjer)
+#include "solution.hpp"                // aco::Solution
+#include "FixedTourCarAssignerDP.hpp"  // FixedTourCarAssignerDP
 
 namespace localSearch 
 {
@@ -35,11 +31,11 @@ static std::uint64_t nowNs()
 
 static inline bool isValid2OptMove(int i, int k, int N)
 {
-    // fiksni start: i mora krenuti od 1
+    // fixed start: i must begin at 1
     if (i <= 0) return false;
     if (k <= i) return false;
     if (k >= N) return false;
-    if (k == i + 1) return false; // trivijalno (reverse duljine 2)
+    if (k == i + 1) return false; // trivial move (reverse of length 2)
     return true;
 }
 
@@ -54,11 +50,11 @@ static inline void applyReverseAndUpdatePos(std::vector<int>& tour,
     }
 }
 
-// "virtualni" reverse view: ne dira baznu turu
+// Virtual reverse view: doesn't mutate the base tour
 struct TwoOptView
 {
     const std::vector<int>& base;
-    int i, k; // reverse [i..k]
+    int i, k; // reversed range [i..k]
 
     int operator()(int idx) const
     {
@@ -67,7 +63,7 @@ struct TwoOptView
     }
 };
 
-// Simetrični TSP 2-opt delta (mijenjaju se samo 2 brida)
+// Symmetric TSP 2-opt delta (only 2 edges change)
 static inline double tsp2OptDeltaSym(const cars_tsplib::Instance& inst,
                                      const std::vector<int>& tour,
                                      int i,
@@ -124,8 +120,7 @@ bool TwoOptLocalSearch::likelySymmetricTsp_() const
     const int N = inst_->n();
     if (N <= 2) return true;
 
-    // Heuristička provjera simetrije za car=0 (TSP fallback grana).
-    // Deterministički uzorak (bez RNG).
+    // Heuristic symmetry check for car=0 (TSP fallback branch), using a deterministic sample (no RNG).
     const int M = std::min(N, 25);
     for (int i = 0; i < M; ++i) {
         for (int j = i + 1; j < M; ++j) {
@@ -159,9 +154,8 @@ void TwoOptLocalSearch::improve(aco::Solution& s, double& cost) const
             cost = singleCarCycleCost_(s.node);
         }
     } else {
-        // ako ne reassignaš na startu, bar za TSP očisti car
+        // Not reassigning at start; for the TSP fallback at least clear car. Cost is assumed valid from the caller.
         if (!useCarDP) std::fill(s.car.begin(), s.car.end(), 0);
-        // cost pretpostavljamo da je već validan od pozivatelja
     }
 
     if (!std::isfinite(cost))
@@ -176,11 +170,11 @@ void TwoOptLocalSearch::improve(aco::Solution& s, double& cost) const
 
     const bool useCand = (opt_.cand != nullptr) && (opt_.cand->N() == N) && (opt_.cand->K() > 0);
 
-    // DLB po ID-u čvora (stabilno na reverse)
+    // DLB keyed by node id (stable across reverses)
     std::vector<std::uint8_t> dontLookNode;
     if (opt_.useDontLookBits) dontLookNode.assign((std::size_t)N, 0);
 
-    // TSP fallback: simetrična delta samo ako heuristika kaže da je simetrično.
+    // TSP fallback: use the symmetric delta only if the heuristic says the instance is symmetric.
     const bool useSymTspDelta = (!useCarDP) ? likelySymmetricTsp_() : false;
 
     bool anyAccepted = false;
@@ -193,7 +187,7 @@ void TwoOptLocalSearch::improve(aco::Solution& s, double& cost) const
                      anyAccepted);
     }
 
-    // NA KRAJU: uskladi cars samo jednom (ako je bilo promjena i ako koristimo DP)
+    // At the end, reconcile cars only once (if anything changed and DP is in use)
     if (useCarDP && anyAccepted) {
         cost = dp_->reassignCars(s.node, s.car);
         if (!std::isfinite(cost))
@@ -247,13 +241,13 @@ void TwoOptLocalSearch::improveFirst_(aco::Solution& s,
         }
     };
 
-    // Stamp-based dedup za k (k su pozicije 0..N-1)
+    // Stamp-based dedup for k (k are positions 0..N-1)
     std::vector<std::uint32_t> seenStamp((std::size_t)N, 0u);
     std::uint32_t stamp = 1u;
 
-    // Early termination: prekini ako nema poboljšanja nakon N uzastopnih pass-ova
+    // Early termination: stop after maxNoImprove consecutive passes with no improvement
     int noImproveCount = 0;
-    const int maxNoImprove = std::max(10, N / 4); // adaptivno po veličini instance
+    const int maxNoImprove = std::max(10, N / 4); // scales with instance size
 
     for (int pass = 0; pass < opt_.maxPasses; ++pass) {
         bool improvedThisPass = false;
@@ -265,7 +259,7 @@ void TwoOptLocalSearch::improveFirst_(aco::Solution& s,
             const int a = s.node[(std::size_t)(i - 1)];
             const int b = s.node[(std::size_t)i];
 
-            // depot (0) nikad ne blokiraj DLB-om
+            // never let DLB block the depot (0)
             if (useDLB && a != 0 && b != 0 && dontLookNode[(std::size_t)a] &&
                 dontLookNode[(std::size_t)b]) {
                 continue;
@@ -302,7 +296,7 @@ void TwoOptLocalSearch::improveFirst_(aco::Solution& s,
                 for (int k = i + 1; k <= N - 1; ++k) pushK(k);
             }
 
-            // probaj ks redom (FIRST improvement)
+            // try ks in order (FIRST improvement)
             for (int k : ks) {
                 if (stopRequested()) return;
 
@@ -315,7 +309,7 @@ void TwoOptLocalSearch::improveFirst_(aco::Solution& s,
                     if (useSymTspDelta) {
                         candCost = cost + tsp2OptDeltaSym(*inst_, s.node, i, k);
                     } else {
-                        // ATSP-safe: puna evaluacija (O(N)) na virtualnoj turi
+                        // ATSP-safe: full O(N) evaluation over the virtual tour
                         TwoOptView view{s.node, i, k};
                         candCost = 0.0;
                         for (int t = 0; t < N; ++t) {
@@ -339,7 +333,7 @@ void TwoOptLocalSearch::improveFirst_(aco::Solution& s,
                     if (!useCarDP) {
                         std::fill(s.car.begin(), s.car.end(), 0);
                     } else {
-                        anyAccepted = true; // cars su stale; final reassign je u improve()
+                        anyAccepted = true; // cars are stale; reassigned once at the end of improve()
                     }
 
                     acceptedForThisI = true;
@@ -354,18 +348,18 @@ void TwoOptLocalSearch::improveFirst_(aco::Solution& s,
                     if (b != 0) dontLookNode[(std::size_t)b] = 1;
                 }
             } else {
-                // first improvement: čim prihvatiš potez, restartaj pass
+                // first improvement: restart the pass as soon as a move is accepted
                 break;
             }
         }
 
-        // Early termination: prekini ako nema poboljšanja nakon N uzastopnih pass-ova
+        // Early termination: stop after maxNoImprove consecutive passes with no improvement
         if (improvedThisPass) {
-            noImproveCount = 0; // Resetiraj ako je pronašao poboljšanje
+            noImproveCount = 0;
         } else {
             noImproveCount++;
             if (noImproveCount >= maxNoImprove) {
-                break; // Prekini ranije - nema smisla dalje tražiti
+                break;
             }
         }
     }
@@ -418,9 +412,9 @@ void TwoOptLocalSearch::improveBest_(aco::Solution& s,
     std::vector<std::uint32_t> seenStamp((std::size_t)N, 0u);
     std::uint32_t stamp = 1u;
 
-    // Early termination: prekini ako nema poboljšanja nakon N uzastopnih pass-ova
+    // Early termination: stop after maxNoImprove consecutive passes with no improvement
     int noImproveCount = 0;
-    const int maxNoImprove = std::max(10, N / 4); // adaptivno po veličini instance
+    const int maxNoImprove = std::max(10, N / 4); // scales with instance size
 
     for (int pass = 0; pass < opt_.maxPasses; ++pass) {
         if (stopRequested()) break;
@@ -434,14 +428,13 @@ void TwoOptLocalSearch::improveBest_(aco::Solution& s,
             const int a = s.node[(std::size_t)(i - 1)];
             const int b = s.node[(std::size_t)i];
 
-            // depot (0) nikad ne blokiraj DLB-om
+            // never let DLB block the depot (0)
             if (useDLB && a != 0 && b != 0 && dontLookNode[(std::size_t)a] &&
                 dontLookNode[(std::size_t)b]) {
                 continue;
             }
 
-            // Standardniji DLB kriterij u best-improvement modu:
-            // uspavaj (a,b) samo ako ne postoji NIJEDAN potez koji popravlja trenutni cost
+            // Standard DLB criterion for best-improvement mode: only sleep (a,b) if no move improves the current cost.
             bool hasImprovingMoveForThisI = false;
 
             std::vector<int> ks;
@@ -485,7 +478,7 @@ void TwoOptLocalSearch::improveBest_(aco::Solution& s,
                     if (useSymTspDelta) {
                         candCost = cost + tsp2OptDeltaSym(*inst_, s.node, i, k);
                     } else {
-                        // ATSP-safe: puna evaluacija (O(N)) na virtualnoj turi
+                        // ATSP-safe: full O(N) evaluation over the virtual tour
                         TwoOptView view{s.node, i, k};
                         candCost = 0.0;
                         for (int t = 0; t < N; ++t) {
@@ -517,19 +510,17 @@ void TwoOptLocalSearch::improveBest_(aco::Solution& s,
             }
         }
 
-        // Early termination: prekini ako nema poboljšanja nakon N uzastopnih pass-ova
+        // Early termination: stop after maxNoImprove consecutive passes with no improvement
         if (bestI < 0) {
-            // Nema poboljšanja u ovom pass-u
             noImproveCount++;
             if (noImproveCount >= maxNoImprove) {
-                break; // Prekini ranije - nema smisla dalje tražiti
+                break;
             }
         } else {
-            // Pronašao poboljšanje - resetiraj brojač
             noImproveCount = 0;
         }
 
-        if (bestI < 0) break; // nema poboljšanja u ovom pass-u
+        if (bestI < 0) break; // no improving move found this pass
 
         // ACCEPT best
         applyReverseAndUpdatePos(s.node, pos, bestI, bestK);
@@ -540,7 +531,7 @@ void TwoOptLocalSearch::improveBest_(aco::Solution& s,
         if (!useCarDP) {
             std::fill(s.car.begin(), s.car.end(), 0);
         } else {
-            anyAccepted = true; // cars su stale; final reassign je u improve()
+            anyAccepted = true; // cars are stale; reassigned once at the end of improve()
         }
     }
 }

@@ -153,7 +153,7 @@ static inline std::vector<OptionSpec> makeSpecs()
     "Cars policy: exploitation probability in [0,1]. With prob q0 choose argmax(weight), else roulette. Higher => more greedy, faster convergence but less exploration. Recommended: 0.05-0.2.", "Algorithm",
     [](ParamsData& d, const std::string& v){ d.policyQ0 = parseDouble(v, "q0Cars"); } });
 
-    // Dinamički q0 parametri
+    // Adaptive q0 parameters
     s.push_back({ "adaptiveQ0", "aq0", "bool", "0",
     "Enable adaptive q0: q0 increases linearly from q0Start to q0End during iterations. 0=disabled (use fixed policyQ0), 1=enabled. When enabled, q0 starts low (exploration) and increases to higher value (exploitation) as iterations progress.", "Algorithm",
     [](ParamsData& d, const std::string& v){ d.adaptiveQ0 = parseBool01(v, "adaptiveQ0"); } });
@@ -256,9 +256,9 @@ static inline std::vector<OptionSpec> makeSpecs()
 
     // === Intensifier ===
     s.push_back({ "intensifier","intf","bool", "1",
-    "Intensifier on/off: 1 = uključen (dodatni LS na global best + povezana logika resetiranja feromona/arhive), "
-    "0 = isključen: nema te komponente niti dodatnog LS-a samo na global best; LS na elitnim mravima ostaje. Default: 1. "
-    "CSV: RunRecorder zaglavlje (param;value) sadrži redak intensifierEnabled=0|1 u svim izlazima koji pišu params header (npr. iteration_best.csv, global_best.csv, weibulls.csv, weibull_hypotheses.csv, runs_summary.csv, …).",
+    "Intensifier on/off: 1 = enabled (extra LS on global best + related pheromone/archive reset logic), "
+    "0 = disabled: no such component or extra LS on global best; LS on elite ants remains. Default: 1. "
+    "CSV: RunRecorder header (param;value) includes intensifierEnabled=0|1 in all outputs that write a params header (e.g. iteration_best.csv, global_best.csv, weibulls.csv, weibull_hypotheses.csv, runs_summary.csv, etc.).",
     "Intensifier",
     [](ParamsData& d, const std::string& v){ d.intensifierEnabled = parseBool01(v, "intensifier"); } });
     s.push_back({ "intensifierMaxStagnationIterations","imsi","int", "3",
@@ -383,16 +383,15 @@ static inline void validate(const ParamsData& d)
 
     if (d.gbPeriod < -1) throw ParseError("globalBestPeriod must be >= -1");
 
-    // Optional sanity
-    // Optional sanity (bolje za MMAS)
+    // Optional sanity (better for MMAS)
     if (!(d.rhoCars > 0.0 && d.rhoCars < 1.0)) throw ParseError("carRho must be in (0,1)");
     if (!(d.rhoNodes > 0.0 && d.rhoNodes < 1.0)) throw ParseError("nodeRho must be in (0,1)");
 
-    // ---- NEW: smoothing gamma
+    // Smoothing gamma
     if (!(d.smoothingGammaCars >= 0.0 && d.smoothingGammaCars <= 1.0))
         throw ParseError("smGammaCars must be in [0,1]");
 
-    // ---- NEW: exploration
+    // Exploration
     if (d.exploreItersCars < 0)
         throw ParseError("exploreItersCars must be >= 0");
 
@@ -402,7 +401,7 @@ static inline void validate(const ParamsData& d)
     if (!std::isfinite(d.policyQ0) || d.policyQ0 < 0.0 || d.policyQ0 > 1.0)
         throw ParseError("policyQ0 must be finite and in [0,1]");
     
-    // Dinamički q0 validacija
+    // Adaptive q0 validation
     if (d.adaptiveQ0) {
         if (!std::isfinite(d.q0Start) || d.q0Start < 0.0 || d.q0Start > 1.0)
             throw ParseError("q0Start must be finite and in [0,1]");
@@ -412,7 +411,7 @@ static inline void validate(const ParamsData& d)
             throw ParseError("q0Start must be <= q0End");
     }
 
-    // ---- NEW: epsilonEta
+    // epsilonEta
     if (!std::isfinite(d.epsilonEtaCars) || d.epsilonEtaCars < 0.0)
         throw ParseError("epsilonEtaCars must be finite and >= 0");
 
@@ -426,7 +425,7 @@ static inline void validate(const ParamsData& d)
     if (d.pBestCars > 0.0 && !(d.pBestCars < 1.0))
         throw ParseError("pBestCars must be in (0,1) when enabled");
 
-    // ---- NEW: returnFactorCars
+    // returnFactorCars
     if (!std::isfinite(d.returnFactorCars) || d.returnFactorCars < 0.0)
         throw ParseError("returnFactorCars must be finite and >= 0");
 
@@ -498,7 +497,7 @@ ParamsData Parser::parse(int argc, const char* const* argv) const
     data.betaPass  = DEFAULT_BETA;
     data.rhoPass   = DEFAULT_RHO;
 
-// ---- New defaults (explicit)
+    // New defaults (explicit)
     data.smoothingGammaCars = DEFAULT_SMOOTHING_GAMMA;
     data.restartTargetCars = RestartTarget::Mid;
 

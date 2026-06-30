@@ -23,15 +23,15 @@ private:
     std::shared_ptr<const CandidateListCache> cl_;
     double eps_;
 
-    // returnFactor_ utječe SAMO na konstrukciju (ant-policy).
-    // - returnFactor_ == 0.0: policy uopće ne koristi returnCost() ni tauReturn() (taj kod se preskače).
-    // - returnFactor_ > 0.0 : policy može uključiti return heuristiku/feromone u težinu izbora.
-    // Pheromone model i dalje deponira tauReturn iz DP-konzistentnih rješenja (to je odvojeno).
+    // returnFactor_ only affects construction (ant policy):
+    // 0.0 skips returnCost()/tauReturn() entirely; >0.0 lets return heuristic/pheromones
+    // influence selection weight. Pheromone deposit still uses tauReturn from DP-consistent
+    // solutions independently of this.
     double returnFactor_;
 
-    bool sampleCars_;          // false => gradi samo node permutaciju
-    bool enforceNoRerent_;     // true => zabrani ponovno iznajmljivanje auta nakon povrata
-    double q0_; 
+    bool sampleCars_;          // false => build node permutation only
+    bool enforceNoRerent_;     // true => forbid re-renting a car after it has been returned
+    double q0_;
 };
 
 } // namespace aco

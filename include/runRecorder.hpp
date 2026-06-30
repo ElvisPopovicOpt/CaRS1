@@ -1,4 +1,3 @@
-// RunRecorder.h
 #pragma once
 #include <vector>
 #include <string>
@@ -34,7 +33,7 @@ public:
           q0_(static_cast<size_t>(runs_) * iters_, StatsRow::nan()),
           LSW_(static_cast<size_t>(runs_) * iters_, -1),
           smoothing_(static_cast<size_t>(runs_) * iters_, false),
-          // NEW counters (po runu)
+          // Per-run counters
           stagnationEvents_(runs_, 0),
           lkCalls_(runs_, 0),
           lkSuccess_(runs_, 0),
@@ -62,7 +61,7 @@ public:
 
     void setSeed(int runIdx, uint64_t seed) { seeds_.at(runIdx) = seed; }
 
-    // NEW: inkrementi (po runu)
+    // Per-run counters
     void incStagnationEvent(int runIdx) { ++stagnationEvents_.at(runIdx); }
 
     void incLkCall(int runIdx)          { ++lkCalls_.at(runIdx); }
@@ -74,14 +73,14 @@ public:
     void incKickCall(int runIdx)        { ++kickCalls_.at(runIdx); }
     void incKickSuccess(int runIdx)     { ++kickSuccess_.at(runIdx); }
 
-    // Cache statistics (snimiti na kraju runa)
+    // Cache statistics (recorded at end of run)
     void setCacheStats(int runIdx, double evalHitRate, double reasHitRate);
 
     void recordIteration(int runIdx, int it, 
                           double iterBestCost, 
                           double globalBestCost, 
                           double elapsedMs);
-    // NEW: snimi pre i post
+    // Records both pre- and post-local-search iteration-best costs
     void recordIteration2(int runIdx, int it,
                           double iterBestPreCost,
                           double iterBestPostCost,
@@ -94,25 +93,25 @@ public:
     void writeGlobalBestCsv(const std::string& filename, char sep=';') const;
     void writeRunSummaryCsv(const std::string& filename, char sep=';') const;
     void writeDynamicParamsCsv(const std::string& filename, char sep=';') const;
-    // Weibull k po iteraciji/runu u posebnoj CSV datoteci (cross-sectional, iz costova mrava)
+    // Weibull shape k per iteration/run, cross-sectional from ant costs
     void writeWeibullCsv(const std::string& filename, char sep=';') const;
 
-    // Waiting-time Weibull: bilježi iteraciju globalnog poboljšanja
+    // Waiting-time Weibull: records the iteration of a global-best improvement
     void recordGlobalBestImprovement(int runIdx, int iteration);
-    // Waiting-time Weibull: MLE fit na gapove između poboljšanja, po runu + agregirano
+    // Waiting-time Weibull: MLE fit over gaps between improvements, per run + aggregated
     void writeWeibullWaitingTimeCsv(const std::string& filename, char sep=';') const;
 
-    // Diversity stats per iteration (za H5/H6 hipoteze)
+    // Diversity stats per iteration (for the H5/H6 hypotheses)
     void recordDiversity(int runIdx, int it, double costStd, double costRange,
                          double costMean, double costCV, bool improved);
     void writeWeibullHypothesesCsv(const std::string& filename, char sep=';') const;
 
-    // Dodatni izlazi za vanjsku Weibull analizu
+    // Extra outputs for external Weibull analysis
     void recordIntensifierDeactivationEvent(int runIdx, int it, int activationCount, double globalBest);
     void recordStagnationResetGlobalImprovementEvent(int runIdx, int it, int noImproveBefore, double globalBest);
     void writeIntensifierEventsCsv(const std::string& filename, char sep=';') const;
 
-    // Ant-populacija po (run,iter): kvantili costova (min/Q1/median/Q3/max) + mean/std
+    // Ant population per (run,iter): cost quantiles (min/Q1/median/Q3/max) + mean/std
     void recordAntQuantiles(int runIdx, int it, double minCost, double q1Cost, double medianCost,
                             double q3Cost, double maxCost, double meanCost, double stdCost, int sampleN);
     void writeAntsQuantilesCsv(const std::string& filename, char sep=';') const;
@@ -144,12 +143,12 @@ private:
     std::vector<double> iterBestPost_; 
     std::vector<double> globalBest_;
     std::vector<double> elapsedMs_;
-    std::vector<double> weibullK_;  // Weibull shape k po iteraciji (iz costova mrava)
+    std::vector<double> weibullK_;  // Weibull shape k per iteration (from ant costs)
     std::vector<double> q0_;  // q0 per iteration
     std::vector<int> LSW_;     // LSW per iteration
     std::vector<bool> smoothing_;  // smoothing active per iteration (true if smoothing was applied)
 
-    // NEW counters (po runu)
+    // Per-run counters
     std::vector<int> stagnationEvents_;
     std::vector<int> lkCalls_;
     std::vector<int> lkSuccess_;
@@ -157,22 +156,22 @@ private:
     std::vector<int> toptSuccess_;
     std::vector<int> kickCalls_;
     std::vector<int> kickSuccess_;
-    
-    // Cache statistics (po runu)
+
+    // Cache statistics (per run)
     std::vector<double> cacheEvalHitRate_;  // eval hit rate (%)
     std::vector<double> cacheReasHitRate_;  // reassign hit rate (%)
 
-    // Waiting-time Weibull: iteracije u kojima je global best poboljšan (po runu)
+    // Waiting-time Weibull: iterations where the global best improved (per run)
     std::vector<std::vector<int>> improvementIters_;
 
-    // Diversity stats per iteration (za H5/H6)
+    // Diversity stats per iteration (for H5/H6)
     std::vector<double> costStd_;
     std::vector<double> costRange_;
     std::vector<double> costMean_;
     std::vector<double> costCV_;
     std::vector<bool>   improvedThisIter_;
 
-    // Ant-populacija kvantili po iteraciji/runu
+    // Ant population cost quantiles per iteration/run
     std::vector<double> antCostMin_;
     std::vector<double> antCostQ1_;
     std::vector<double> antCostMedian_;

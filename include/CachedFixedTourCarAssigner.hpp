@@ -1,10 +1,9 @@
 #pragma once
-// NOVO: Cache wrapper za DP evaluateCost/reassignCars.
-// - koristi IFixedTourCarAssigner (ne dira DP implementaciju)
-// - canonical key: nodes (node<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0) + optional reverse ako je instanca simetrična.
+// Cache wrapper around a DP-based IFixedTourCarAssigner's evaluateCost/reassignCars.
+// Canonical key: nodes[0] == 0, plus the reversed form if the instance is symmetric.
 
-#include <interfaces.hpp> // ako nemaš ovaj file, zamijeni sa stvarnim headerom gdje su IFixedTourCarAssigner/Solution/...
-#include <parser.hpp>    // ili stvarni header za cars_tsplib::Instance
+#include <interfaces.hpp>
+#include <parser.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -18,28 +17,25 @@ namespace aco
 
 struct DPCacheOptions
 {
-    // Maks broj zapisa u cacheu (FIFO eviction).
-    // 0 => cache isključen (wrapper samo forwarda pozive).
+    // Max number of entries (FIFO eviction). 0 disables the cache (wrapper just forwards calls).
     std::size_t capacity = 5000;
 
-    // Ako true: cache pamti i carPerEdge za reassignCars hit.
+    // If true, also cache carPerEdge so reassignCars can hit.
     bool storeCars = true;
 
-    // Ako true: ako tagovi simetrije nisu prisutni, probaj auto-detect samplingom.
+    // If true, auto-detect symmetry by sampling when symmetry tags are missing.
     bool autoDetectSymmetryWhenUnknown = true;
 
-    // Koliko random uzoraka provjeriti za simetriju (ako je unknown).
-    // 0 => preskoči auto-detect.
+    // Number of random samples to check for symmetry when unknown. 0 skips auto-detect.
     int symmetryDetectSamples = 2000;
 
-    // Epsilon za usporedbu simetrije (floating).
+    // Epsilon for floating-point symmetry comparison.
     double symmetryEps = 1e-12;
 
-    // Ako true: cache pretpostavlja da je nodes<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0 i ne radi rotaciju.
-    // (kod tebe to vrijedi svugdje; drži true radi brzine)
+    // If true, the cache assumes nodes[0] == 0 and skips rotation (holds everywhere; keep true for speed).
     bool assumeStartIsZero = true;
 
-    // Basic thread-safety (mutex oko map-a). Ako znaš da je single-thread per Colony, može false.
+    // Basic thread-safety (mutex around the map). Safe to disable if usage is single-threaded per Colony.
     bool threadSafe = false;
 };
 
@@ -58,7 +54,7 @@ public:
 
     double evaluateCost(const std::vector<int>& nodes) const override;
 
-    // (opcionalno) statistika
+    // Optional stats
     struct Stats
     {
         std::uint64_t evalHits = 0;
@@ -114,16 +110,16 @@ private:
     mutable std::vector<Entry> entries_;
     mutable std::size_t cursor_ = 0;
 
-    // hash -> list of indices (za kolizije hash-a)
+    // hash -> list of indices (for hash collisions)
     mutable std::unordered_map<std::uint64_t, std::vector<std::size_t>> buckets_;
 
-    // scratch za key (izbjegava re-alokacije u hot pathu)
+    // Scratch key buffer (avoids reallocations in the hot path)
     mutable std::vector<int> scratchKey_;
 
     // stats
     mutable Stats stats_;
 
-    // thread-safety (opcionalno)
+    // Optional thread-safety
     mutable std::mutex mx_;
 };
 

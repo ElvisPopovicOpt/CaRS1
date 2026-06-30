@@ -20,8 +20,8 @@ double CostModelCars::evaluate(const Solution& s) const {
     }
     if (N <= 0) return 0.0;
 
-    // start fiksan
-    if (s.node[0] != 0) 
+    // start node is fixed
+    if (s.node[0] != 0)
     {
         throw std::runtime_error("CostModelCars: node[0] must be 0 (fixed start).");
     }
@@ -36,8 +36,7 @@ double CostModelCars::evaluate(const Solution& s) const {
 
         const int lastCar = (i > 0) ? s.car[i - 1] : currentCar;
         currentCar = s.car[i];
-        // CaRS => passNumber=0 => / (passNumber+1) == /1, pa ne dijelimo
-        if (currentCar != lastCar) 
+        if (currentCar != lastCar)
         {
             result += inst_->returnCost(lastCar, currentNode, lastCarNode);
             lastCarNode = currentNode;
@@ -45,9 +44,9 @@ double CostModelCars::evaluate(const Solution& s) const {
 
         result += inst_->travelCost(currentCar, currentNode, nextNode);
     }
-    // finalni return trenutnog auta u start node-u prema lastCarNode
-    // ako je samo jedan auto to je tsp, a i mora cvor vracanja biti isti kao i cvor iznajmljivanja pa se ne naplacuje
-    // vec je u returnCost funkciji ispitano hasReturnCost i vraca nulu ako nema matrice returnCosts
+    // Final return of the current car to the start node from lastCarNode.
+    // With a single car this degenerates to plain TSP (return node == pickup node, so no charge);
+    // returnCost() itself checks hasReturnCost and returns 0 when no return-cost matrix exists.
     result += inst_->returnCost(currentCar, s.node[0], lastCarNode);
 
     return result;

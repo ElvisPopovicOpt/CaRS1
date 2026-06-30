@@ -10,7 +10,7 @@ void IntensifierBinomialLogger::onActivationStart(int runIdx, int activationInde
 {
     std::lock_guard<std::mutex> lock(mtx_);
     records_.push_back({ runIdx, activationIndex, costAtStart, costAtStart, false, 0 });
-    // improved = false jer je ovo početak; costAtEnd = costAtStart za konzistentnost
+    // improved = false since this is the start; costAtEnd = costAtStart for consistency
 }
 
 void IntensifierBinomialLogger::resetActivationDepth(int runIdx)

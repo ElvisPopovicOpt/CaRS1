@@ -37,18 +37,18 @@ struct LSConfig {
 };
 
 static LSConfig getLSConfig(const aco_cli::ParamsData& params) {
-    // Mod vrijednosti: [TwoOpt #1, Relocation, TwoOpt #2, DP Retries]
+    // Mode values: [TwoOpt #1, Relocation, TwoOpt #2, DP Retries]
     static const LSConfig MODES[] = {
         {6, 5, 3, 1},    // Low (1)
         {15, 10, 5, 2},  // Medium (2)
         {30, 20, 10, 3}, // High (3) - default
         {60, 50, 30, 5}  // Extreme (4)
     };
-    
+
     const int mode = std::clamp(params.lsQualityMode, 1, 4) - 1;
     LSConfig config = MODES[mode];
-    
-    // Override ako je postavljen
+
+    // Apply overrides if set
     if (params.lsTwoOpt1Passes > 0) config.twoOpt1Passes = params.lsTwoOpt1Passes;
     if (params.lsRelocPasses > 0) config.relocPasses = params.lsRelocPasses;
     if (params.lsTwoOpt2Passes > 0) config.twoOpt2Passes = params.lsTwoOpt2Passes;
@@ -62,23 +62,23 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
     aco::Runner runner;
     const uint64_t baseSeed = params.seed;
 
-    // Kreiraj zajednički RunRecorder za sve runove
+    // Create a shared RunRecorder for all runs
     auto recorder = std::make_shared<aco::RunRecorder>(params);
 
-    // Istraživačko logiranje (binomna analiza intenzifikatora, ablacije) - opcionalno
+    // Research logging (intensifier binomial analysis, ablations) - optional
     auto researchLogger = params.researchLog ? std::make_shared<aco::IntensifierBinomialLogger>() : nullptr;
-    // Istraživačko logiranje: surogat vs DP cost (korelacija ~0,8) - opcionalno, usporava run
+    // Research logging: surrogate vs DP cost correlation - optional, slows down the run
     auto researchSurrogateLogger = params.researchSurrogateLog ? std::make_shared<aco::SurrogateCorrelationLogger>() : nullptr;
 
     auto results = runner.runAll(params, baseSeed,
     [&](int runIdx, uint64_t seed) -> std::unique_ptr<aco::Colony>
     {
         const int N = inst->n();
-        
-        // Candidate list size - koristi korisnikov izbor bez automatskih prilagodbi
+
+        // Candidate list size - use the user's choice, no automatic adjustment
         int candidateListSize = params.favorites;
-        if (candidateListSize <= 0) {  // auto mode (ako je favorites <= 0)
-            candidateListSize = 40;  // default za sve instance
+        if (candidateListSize <= 0) {  // auto mode (favorites <= 0)
+            candidateListSize = 40;  // default for all instances
         }
         
         auto cl = std::make_shared<aco::CandidateListCache>(inst, candidateListSize);
@@ -105,10 +105,8 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
             pher = std::make_shared<aco::PheromoneModelMMASMove>(inst, params, explOpt);
         }
 
-        // Get LS config from params
+        // Get LS config from params (user's choice, no automatic adjustment)
         auto lsConfig = getLSConfig(params);
-        
-        // Bez automatskih prilagodbi LS parametara - koristi korisnikov izbor
 
         localSearch::TwoOptOptions opt;
         opt.maxPasses = lsConfig.twoOpt1Passes;
@@ -213,25 +211,13 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
             threeOptPolish = std::make_shared<localSearch::ThreeOptLiteLocalSearch>(inst, topt, dpImpl);
         }
 
-        // Kreiraj intenzifikator (komponenta za dublju eksploataciju best rješenja)
-        // 
-        // INTENSIFIKATOR:
-        // - Primjenjuje dodatni LS ciklus na global best rješenje
-        // - Aktivira se kada je best promijenjen ili u prvih N iteracija nakon stagnacije
-        // - Omogućava dublju eksploataciju bez prevelikog utroška vremena
-        // 
-        // PARAMETRI:
-        // - ls: ChainedLocalSearch (2opt->reloc->2opt) koji se koristi za poboljšanje
-        // - dpCached: CachedFixedTourCarAssigner za optimalno dodjeljivanje automobila
-        // - inst: Instance problema
-        // - maxStagnationIterations: override iz params.intensifierMaxStagnationIterations (default: 3)
-        //   Broj iteracija nakon stagnacije kada se još aktivira intenzifikator
-        // - resetPheromonesOnDeactivationCount: override iz params.intensifierResetPheromonesCount
-        //   0 ili negativno = nikad resetirati feromone, 1 = nakon 1. gašenja, 2 = nakon 1. i 2., itd.
-        // 
-        // PRIKLJUČIVANJE:
-        // - Prosljeđuje se u Colony konstruktor kao zadnji parametar (opcionalan)
-        // - Ako params.intensifierEnabled == false, proslijedimo nullptr (bez Intensifiera; nema dodatnog LS-a samo na global best)
+        // Intensifier: applies an extra LS pass to the global-best solution for deeper
+        // exploitation. Activates when the best changes, or for the first N iterations
+        // after stagnation (maxStagnationIterations, from params, default 3).
+        // resetPheromonesOnDeactivationCount controls pheromone resets on deactivation:
+        // 0 or negative = never reset, 1 = after the 1st deactivation, 2 = after the 1st
+        // and 2nd, etc. Passed as the last (optional) Colony constructor argument; if
+        // params.intensifierEnabled is false, nullptr is passed (no extra LS on global best).
         std::shared_ptr<aco::IIntensifier> intensifier;
         if (params.intensifierEnabled)
             intensifier = std::make_shared<aco::Intensifier>(ls, dpCached, inst,
@@ -258,20 +244,20 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
         return colony;
     });
 
-    // Finalna evaluacija cost-a za sve runove (ponovno izračunaj cost za finalna rješenja)
-    // Ovo osigurava da je cost točan i konzistentan prije ispisa
-    // VAŽNO: Samo evaluiramo cost za postojeći car assignment, NE mijenjamo ga
+    // Final cost evaluation for all runs: re-evaluate cost for the final solutions to
+    // ensure consistency before printing. Only re-evaluates the existing car assignment,
+    // does not change it.
     {
-        // Koristimo CostModelCars koji samo evaluira cost za postojeći Solution (nodes + cars)
+        // CostModelCars only evaluates cost for an existing Solution (nodes + cars)
         auto costModel = std::make_shared<aco::CostModelCars>(inst);
-        
-        // Ponovno evaluiraj cost za svaki run (global best iz svakog runa)
+
+        // Re-evaluate cost for each run's global best
         const int N = inst->n();
         for (auto& result : results)
         {
             if (std::isfinite(result.best.cost) && !result.best.sol.node.empty())
             {
-                // Validacija veličine prije evaluacije (zaštita od node.size != N)
+                // Validate size before evaluating (guard against node.size != N)
                 if ((int)result.best.sol.node.size() != N)
                 {
                     std::cerr << "[WARN] Run " << result.runIndex << " final eval: node.size="
@@ -292,7 +278,7 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
         }
     }
     
-    // Nađi najbolji run prije ispisa (nakon finalne evaluacije)
+    // Find the best run before printing (after final evaluation)
     auto bestIt = results.end();
     if (!results.empty()) {
         bestIt = std::min_element(results.begin(), results.end(),
@@ -324,9 +310,8 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
             std::cout << runMsg.str() << "\n";
         }
         
-        // Ispis rješenja samo ako nije najbolji run (najbolji će biti ispisan posebno)
+        // Only print the solution if this isn't the best run (it's printed separately below)
         if (bestIt == results.end() || &result != &(*bestIt)) {
-            // Ispis nodes
             if (std::isfinite(result.best.cost) && !result.best.sol.node.empty()) {
                 std::ostringstream solMsg;
                 solMsg << "  Solution nodes: [";
@@ -345,7 +330,7 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
                     std::cout << solMsg.str() << "\n";
                 }
                 
-                // Ispis cars ako postoje i nisu svi 0
+                // Print cars if present and not all zero
                 if (!result.best.sol.car.empty()) {
                     bool hasNonZeroCars = false;
                     for (int c : result.best.sol.car) {
@@ -377,7 +362,7 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
         }
     }
     
-    // Ispiši najbolji run posebno (ako postoji)
+    // Print the best run separately, if any
     if (bestIt != results.end()) {
         if (logger) {
             logger->log("\n=== Best Run ===");
@@ -399,7 +384,7 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
             std::cout << bestMsg.str() << "\n";
         }
         
-        // Ispis najboljeg rješenja (nodes i cars samo jednom)
+        // Print the best solution (nodes and cars only once)
         if (std::isfinite(bestIt->best.cost) && !bestIt->best.sol.node.empty()) {
             std::ostringstream bestSolMsg;
             bestSolMsg << "  Best Solution nodes: [";
@@ -418,7 +403,7 @@ void runAco(const aco_cli::ParamsData& params, std::shared_ptr<cars_tsplib::Inst
                 std::cout << bestSolMsg.str() << "\n";
             }
             
-            // Ispis cars ako postoje i nisu svi 0
+            // Print cars if present and not all zero
             if (!bestIt->best.sol.car.empty()) {
                 bool hasNonZeroCars = false;
                 for (int c : bestIt->best.sol.car) {
@@ -502,22 +487,19 @@ int main(int argc, char* argv[])
         cars_tsplib::Parser parserInst;
         auto inst = std::make_shared<cars_tsplib::Instance const>(parserInst.parseFileSpec(params.filename));
         
-        // Kreiraj log file path na osnovu imena problema
+        // Build the log file path from the problem name
         std::string logFilePath = "";
         if (!params.filename.empty()) {
-            // Ekstraktuj ime problema (bez path-a i ekstenzije)
+            // Extract the problem name (strip path and extension)
             std::string problemName = params.filename;
-            // Ukloni path
             size_t lastSlash = problemName.find_last_of("/\\");
             if (lastSlash != std::string::npos) {
                 problemName = problemName.substr(lastSlash + 1);
             }
-            // Ukloni ekstenziju
             size_t lastDot = problemName.find_last_of(".");
             if (lastDot != std::string::npos) {
                 problemName = problemName.substr(0, lastDot);
             }
-            // Kreiraj log file path
             logFilePath = "logs/" + problemName + ".log";
         }
         

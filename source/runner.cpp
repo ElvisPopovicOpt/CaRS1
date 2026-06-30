@@ -16,15 +16,15 @@ std::vector<RunResult> Runner::runAll(const aco_cli::ParamsData& params, uint64_
     std::vector<RunResult> results;
     results.resize(static_cast<size_t>(nRuns));
 
-    // za ispis 
+    // Tracks which run currently owns verbose logging
     std::atomic<int> verboseOwner{-1};
     std::mutex printMx;
 
-    // Praćenje napretka svakog runa (trenutna iteracija)
+    // Progress tracking per run (current iteration)
     std::vector<std::atomic<int>> currentIteration(static_cast<size_t>(nRuns));
     for (auto& iter : currentIteration) iter.store(-1, std::memory_order_relaxed);
-    
-    // Status runova: -1 = nije počeo, 0 = u tijeku, 1 = završen
+
+    // Run status: -1 = not started, 0 = in progress, 1 = finished
     std::vector<std::atomic<int>> runStatus(static_cast<size_t>(nRuns));
     for (auto& status : runStatus) status.store(-1, std::memory_order_relaxed);
 
@@ -36,14 +36,14 @@ std::vector<RunResult> Runner::runAll(const aco_cli::ParamsData& params, uint64_
     }
     nThreads = std::min(nThreads, nRuns);
 
-    // Funkcija za odabir sljedećeg verbose runa (najviše iteracija ostalo - najdulje će raditi)
+    // Selects the next run to make verbose (the one with the most iterations remaining, i.e. will run longest)
     auto selectNextVerbose = [&]() -> int {
         int bestIdx = -1;
         int maxIter = -1;
-        
+
         for (int i = 0; i < nRuns; ++i) {
             int status = runStatus[i].load(std::memory_order_acquire);
-            if (status == 0) { // u tijeku
+            if (status == 0) { // in progress
                 int iter = currentIteration[i].load(std::memory_order_acquire);
                 if (iter >= 0) {
                     int remaining = params.iterations - iter;
@@ -57,10 +57,10 @@ std::vector<RunResult> Runner::runAll(const aco_cli::ParamsData& params, uint64_
         return bestIdx;
     };
 
-    // Pohrana colony referenci za ažuriranje verbose flag-a tijekom izvršavanja
-    // Koristimo weak_ptr jer ne želimo zadržati ownership (colony se uništi nakon run())
+    // Stores colony references so the verbose flag can be updated while running.
+    // Uses weak_ptr since ownership stays with the worker (colony is destroyed after run()).
     std::vector<std::weak_ptr<Colony>> colonies(static_cast<size_t>(nRuns));
-    std::mutex coloniesMx; // za thread-safe pristup colonies vektoru
+    std::mutex coloniesMx; // guards thread-safe access to the colonies vector
 
     std::vector<std::thread> workers;
     workers.reserve(static_cast<size_t>(nThreads));
@@ -74,11 +74,10 @@ std::vector<RunResult> Runner::runAll(const aco_cli::ParamsData& params, uint64_
 
                 const uint64_t colonySeed = aco::mixSeedRun(baseSeed, (uint64_t)idx);
 
-                // Označi da je run počeo
+                // Mark the run as started
                 runStatus[idx].store(0, std::memory_order_release);
 
-                // za ispis
-                // pokušaj postati "verbose" run ako ga trenutno nema
+                // Try to become the "verbose" run if none is currently set
                 bool iAmVerbose = false;
                 {
                     int expected = -1;
@@ -88,28 +87,26 @@ std::vector<RunResult> Runner::runAll(const aco_cli::ParamsData& params, uint64_
                 }
 
                 auto colony = factory(idx, colonySeed);
-                
-                // Pohrani shared_ptr referencu na colony za kasnije ažuriranje verbose flag-a
+
+                // Keep a shared_ptr reference to the colony for later verbose-flag updates
                 std::shared_ptr<Colony> colonyShared = std::shared_ptr<Colony>(colony.release());
                 {
                     std::lock_guard<std::mutex> lock(coloniesMx);
                     colonies[static_cast<size_t>(idx)] = colonyShared;
                 }
-                
-                // ispis: postavi colonyju logger/flag
+
+                // Set the colony's logger/verbose flag
                 colonyShared->setVerbose(iAmVerbose, &printMx);
-                
-                // Callback za ažuriranje napretka
+
+                // Callback to update progress tracking
                 colonyShared->setProgressCallback([&, idx](int iteration) {
                     currentIteration[idx].store(iteration, std::memory_order_release);
-                    
-                    // Provjeri treba li postati verbose run (samo ako nema verbose runa)
+
+                    // Try to become the verbose run, but only if there isn't one already
                     int currentVerbose = verboseOwner.load(std::memory_order_acquire);
                     if (currentVerbose == -1) {
-                        // Nema verbose runa, pokušaj postati verbose
                         int expected = -1;
                         if (verboseOwner.compare_exchange_strong(expected, idx, std::memory_order_acq_rel)) {
-                            // Postani verbose
                             {
                                 std::lock_guard<std::mutex> lock(coloniesMx);
                                 auto idxColony = colonies[static_cast<size_t>(idx)].lock();
@@ -124,26 +121,24 @@ std::vector<RunResult> Runner::runAll(const aco_cli::ParamsData& params, uint64_
                             }
                         }
                     }
-                    // Ne prebacujemo verbose run tijekom izvršavanja - samo kada završi
+                    // The verbose run is only reassigned when a run finishes, not mid-run
                 });
 
                 results[static_cast<size_t>(idx)] = colonyShared->run();
-                
-                // Označi da je run završen
+
+                // Mark the run as finished
                 runStatus[idx].store(1, std::memory_order_release);
-                
-                // za ispis nakon zavrsetka
-                if (iAmVerbose) 
+
+                // Hand off verbose logging to another run if this one owned it
+                if (iAmVerbose)
                 {
                     int expected = idx;
                     verboseOwner.compare_exchange_strong(expected, -1, std::memory_order_acq_rel);
-                    
-                    // Odaberi sljedeći run za ispis (najmanje iteracija)
+
                     int nextVerbose = selectNextVerbose();
                     if (nextVerbose >= 0) {
                         int expected2 = -1;
                         if (verboseOwner.compare_exchange_strong(expected2, nextVerbose, std::memory_order_acq_rel)) {
-                            // Ažuriraj verbose flag za novi run
                             {
                                 std::lock_guard<std::mutex> lock(coloniesMx);
                                 auto nextVerboseColony = colonies[static_cast<size_t>(nextVerbose)].lock();

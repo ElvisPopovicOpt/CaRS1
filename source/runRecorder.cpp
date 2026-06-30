@@ -16,7 +16,7 @@
 namespace aco 
 {
 
-// elapsedMs = vrijeme od početka TOG runa do kraja iteracije it
+// elapsedMs = time from the start of this run to the end of iteration it
 void RunRecorder :: recordIteration(int runIdx, int it, 
                                    double iterBestCost, 
                                    double globalBestCost, 
@@ -35,20 +35,17 @@ void RunRecorder::recordIteration2(int runIdx, int it,
                                    double weibullK)
 {
     const size_t idx = index(runIdx, it);
-    iterBest_[idx]     = iterBestPreCost;   // postojeći niz, tretiramo kao PRE
-    iterBestPost_[idx] = iterBestPostCost;  // novi niz, POST
-    
-    // globalBest_ treba biti kumulativni minimum (najbolji cost do te iteracije)
-    // globalBestCost koji dolazi iz colony.cpp već JEST kumulativni minimum (rr.best.cost se ažurira samo kada se nađe bolje rješenje)
-    // Ali za sigurnost, provjerimo je li globalBestCost bolji od prethodnog globalBest_
+    iterBest_[idx]     = iterBestPreCost;   // existing array, treated as PRE
+    iterBestPost_[idx] = iterBestPostCost;  // new array, POST
+
+    // globalBest_ must be the cumulative minimum (best cost up to this iteration).
+    // globalBestCost from colony.cpp is already the cumulative minimum, but we
+    // still take min() defensively in case that invariant is ever violated.
     if (it == 0) {
         globalBest_[idx] = globalBestCost;
     } else {
         const size_t prevIdx = index(runIdx, it - 1);
         const double prevGlobalBest = globalBest_[prevIdx];
-        // Kumulativni minimum: uzmi najbolji od prethodnog i trenutnog
-        // globalBestCost bi trebao biti >= prevGlobalBest (jer je kumulativni minimum),
-        // ali za sigurnost uzimamo minimum
         globalBest_[idx] = std::min(prevGlobalBest, globalBestCost);
     }
     
@@ -181,12 +178,12 @@ void RunRecorder::writeParamsHeader(std::ofstream& f, char sep) const
 
     // ---- LS Quality parameters
     {
-        // Opća kvaliteta (1=Low, 2=Medium, 3=High, 4=Extreme)
+        // Overall quality level (1=Low, 2=Medium, 3=High, 4=Extreme)
         const char* qualityNames[] = {"", "Low", "Medium", "High", "Extreme"};
         const int mode = std::clamp(params_.lsQualityMode, 1, 4);
         f << "lsQuality" << sep << qualityNames[mode];
-        
-        // Override parametri ako su postavljeni (nije -1)
+
+        // Override params if set (not -1)
         bool hasOverrides = false;
         if (params_.lsTwoOpt1Passes > 0) hasOverrides = true;
         if (params_.lsRelocPasses > 0) hasOverrides = true;
@@ -361,12 +358,11 @@ void RunRecorder::writeParamsHeader(std::ofstream& f, char sep) const
 void RunRecorder :: writeCsv(const std::string& filename, char sep, bool useGlobal) const 
 {
     std::ofstream f(filename);
-    f.imbue(std::locale::classic()); // stabilno; ako hoćeš decimal comma, javi pa dodamo custom facet
+    f.imbue(std::locale::classic()); // stable formatting regardless of system locale
 
     writeParamsHeader(f, sep);
 
-    // Stupci:
-    // iter; time_ms_mean; time_ms_min; time_ms_max; run0;...; stats...
+    // Columns: iter; time_ms_mean; time_ms_min; time_ms_max; run0;...; stats...
     f << "iter"
         << sep << "time_ms_mean"
         << sep << "time_ms_min"
@@ -397,8 +393,7 @@ void RunRecorder :: writeCsv(const std::string& filename, char sep, bool useGlob
         for (int r = 0; r < runs_; ++r) 
         {
             const size_t idx = index(r, it);
-            // Za iteration_best koristi iterBestPost_ (nakon svih akcija u iteraciji)
-            // Za global_best koristi globalBest_
+            // iteration_best uses iterBestPost_ (after all actions in the iteration); global_best uses globalBest_
             const double c = useGlobal ? globalBest_[idx] : iterBestPost_[idx];
             const double t = elapsedMs_[idx];
             costBuf.push_back(c);
@@ -411,8 +406,6 @@ void RunRecorder :: writeCsv(const std::string& filename, char sep, bool useGlob
         for (int r = 0; r < runs_; ++r) 
         {
             const size_t idx = index(r, it);
-            // Za iteration_best koristi iterBestPost_ (nakon svih akcija u iteraciji)
-            // Za global_best koristi globalBest_
             const double c = useGlobal ? globalBest_[idx] : iterBestPost_[idx];
             f << sep << c;
         }
@@ -437,7 +430,7 @@ void RunRecorder::writeWeibullCsv(const std::string& filename, char sep) const
 
     writeParamsHeader(f, sep);
 
-    // Stupci: iter; run0;...; stats za k
+    // Columns: iter; run0;...; stats for k
     f << "iter";
     for (int r = 0; r < runs_; ++r) f << sep << "weibull_k_run" << r;
 
@@ -1040,7 +1033,7 @@ double RunRecorder::getMeanGlobalBestForIteration(int it) const
     std::vector<double> values;
     values.reserve(static_cast<size_t>(runs_));
     
-    // Samo uključi runove koji su već izračunali svoju vrijednost (sporiji se ignoriraju)
+    // Only include runs that have already computed their value (slower runs are skipped)
     for (int r = 0; r < runs_; ++r)
     {
         const size_t idx = index(r, it);
@@ -1052,8 +1045,7 @@ double RunRecorder::getMeanGlobalBestForIteration(int it) const
     }
     
     if (values.empty()) return StatsRow::nan();
-    
-    // Izračunaj srednju vrijednost
+
     double sum = 0.0;
     for (double val : values)
     {

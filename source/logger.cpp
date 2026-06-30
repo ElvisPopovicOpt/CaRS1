@@ -11,14 +11,14 @@ Logger::Logger(const std::string& logFile)
 {
     if (!logFile.empty()) 
     {
-        // Kreiraj logs folder ako ne postoji
+        // Create the log directory if it doesn't exist
         std::filesystem::path logPath(logFile);
-        if (logPath.has_parent_path()) 
+        if (logPath.has_parent_path())
         {
             std::filesystem::create_directories(logPath.parent_path());
         }
-        
-        // Otvori fajl za append (da se ne prepiše ako se pokrene više puta)
+
+        // Open in append mode so repeated runs don't overwrite previous logs
         logFile_.open(logFile, std::ios::app);
         if (!logFile_.is_open()) 
         {

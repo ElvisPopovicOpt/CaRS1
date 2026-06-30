@@ -14,7 +14,7 @@ class CostModelCars;
 namespace selftest 
 {
 
-// Baca std::runtime_error ako test padne.
+// Throws std::runtime_error if the test fails.
 void runDpConsistencyTest(std::shared_ptr<const cars_tsplib::Instance> inst,
                           std::uint64_t seed,
                           int toursToTest = 200,

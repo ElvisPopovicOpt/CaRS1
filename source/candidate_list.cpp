@@ -17,7 +17,7 @@ CandidateListCache::CandidateListCache(
 
     cand_.assign(static_cast<size_t>(N_), {});
 
-    // precompute: za svaki i, sortiraj j po min_car travelCost(car,i,j), uzmi top-K
+    // For each node i, sort candidates j by min-over-cars travelCost(car,i,j) and keep top-K
     std::vector<int> nodes;
     nodes.resize(static_cast<size_t>(N_));
 

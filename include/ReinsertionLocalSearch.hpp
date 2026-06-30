@@ -10,9 +10,9 @@ namespace aco { class CandidateListCache; }
 namespace localSearch
 {
 
-// Reinsertion Local Search: single-node relocation with optional candidate list.
-// Same algorithm as in ACO_CarSP (2-opt -> Or-opt -> Reinsertion -> 2-opt), CaRS variant
-// has no passengers; only improve(Solution&, double&) is used.
+// Single-node relocation local search with optional candidate-list restriction.
+// Same algorithm as ACO_CarSP's reinsertion step; this CaRS variant has no
+// passengers, so only improve(Solution&, double&) is used.
 struct ReinsertionOptions
 {
     int maxPasses = 5;

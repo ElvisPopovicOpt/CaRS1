@@ -13,7 +13,7 @@ namespace cars_tsplib { struct Instance; }
 namespace localSearch 
 {
 
-// Rezultat DP-a: minimalni cost i optimalni car po edge-u (size N).
+// Result of the DP: minimal cost and the optimal car per edge (size N).
 struct CarAssignmentDPResult
 {
     double cost = std::numeric_limits<double>::infinity();
@@ -22,29 +22,27 @@ struct CarAssignmentDPResult
 
 struct CarAssignmentDPOptions
 {
-    // Ako true: provjeri da je tour permutacija [0..N-1] i da je node<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0.
-    // Korisno dok razvijaš 2-opt/LK (hvata tihe bugove).
+    // If true: verify that tour is a permutation of [0..N-1] and node[0]==0.
+    // Useful while developing 2-opt/LK (catches silent bugs).
     bool validateTour = false;
 
-    // Heurističko ograničenje duljine segmenta (radi brzine).
-    // -1 => bez ograničenja (točno optimalno).
+    // Heuristic cap on segment length (for speed). -1 => no limit (exact optimum).
     int maxSegmentLen = -1;
 
-    // ROBUST fallback:
-    // Ako je maxSegmentLen > 0 i DP vrati INF, automatski retry s većim L, pa na kraju s -1.
+    // Robust fallback: if maxSegmentLen > 0 and the DP returns INF, automatically retry with a larger L, then finally with -1.
     bool fallbackToUnlimitedOnInf = true;
 
-    // Koliko puta pokušati povećati L prije finalnog -1 (ako je enabled).
-    // Primjer: maxSegmentLen=20, growth=2, retries=3 => 20,40,80 pa -1.
+    // How many times to grow L before the final -1 attempt (if enabled).
+    // Example: maxSegmentLen=20, growth=2, retries=3 => 20,40,80, then -1.
     int fallbackMaxRetries = 3;
 
-    // Faktor rasta segmenta pri retryu (>=2 preporučeno).
+    // Growth factor for the segment length on retry (>=2 recommended).
     int fallbackGrowthFactor = 2;
 };
 
-// Da se ne alocira vektor tijekom izvršavanja
-// N - broj cvorova, C broj automobila
-struct Scratch 
+// Avoids allocating vectors during execution.
+// N - number of nodes, C - number of cars
+struct Scratch
 {
     int N = 0;
     int C = 0;
@@ -56,10 +54,10 @@ struct Scratch
     // dp[t*M + mask]
     std::vector<double> dp;
 
-    // materijalizirana tura (N+1, uključuje closure tour[N]=tour<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>)
+    // Materialized tour (N+1, includes closure tour[N]=tour[0])
     std::vector<int> tour;
 
-    // NOVO: za validateTour bez alokacija/clearanja
+    // For validateTour without allocations/clearing.
     std::vector<int> seenStamp;
     int stamp = 1;
 
@@ -69,24 +67,16 @@ struct Scratch
 
 
 
-// DP optimizator koji za fiksni Hamiltonov ciklus čvorova (node<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0)
-// pronalazi optimalnu segmentaciju po autima pod CaRS "switch-return" semantikom.
+// DP optimizer that, for a fixed Hamiltonian cycle of nodes (node[0]==0),
+// finds the optimal segmentation across cars under CaRS "switch-return" semantics.
 //
-// Semantika:
-// - segment [s, t) koristi auto c na edge-ovima s..t-1
-// - cijena segmenta je:
-//      sum travelCost(c, v[k], v[k+1]) za k=s..t-1
-//    + returnCost(c, v[t], v[s])   // zatvaranje segmenta (switch/final)
+// Semantics:
+// - segment [s, t) uses car c on edges s..t-1
+// - segment cost is:
+//      sum travelCost(c, v[k], v[k+1]) for k=s..t-1
+//    + returnCost(c, v[t], v[s])   // closing the segment (switch/final)
 //
-// Time DP prirodno modelira i finalni return zadnjeg auta jer je v[N]=v[0].
-// update - robust fallback
-// Semantika:
-// - segment [s, t) koristi auto c na edge-ovima s..t-1
-// - cijena segmenta je:
-//      sum travelCost(c, v[k], v[k+1]) za k=s..t-1
-//    + returnCost(c, v[t], v[s])   // zatvaranje segmenta (switch/final)
-//
-// Time DP prirodno modelira i finalni return zadnjeg auta jer je v[N]=v[0].
+// This way the DP naturally models the last car's final return too, since v[N]=v[0].
 
 class FixedTourCarAssignerDP
 {
@@ -101,11 +91,11 @@ public:
 
     double evaluateCost(const std::vector<int>& nodes) const;
 
-    // cost-only evaluacija ture preko "view"-a.
-    // getNode(idx) mora vratiti čvor na poziciji idx (0..N-1), a ciklus se zatvara interno.
+    // Cost-only evaluation of a tour via a "view".
+    // getNode(idx) must return the node at position idx (0..N-1); the cycle is closed internally.
     double evaluateCostView(const std::function<int(int)>& getNode) const;
 
-     // NOVO: koristi scratch (bez realokacije)
+    // Same as evaluateCostView but uses a caller-supplied scratch (no reallocation).
     double evaluateCostViewScratch(const std::function<int(int)>& getNode, Scratch& scratch) const;
 
 private:
@@ -114,27 +104,26 @@ private:
 
     void validateTourOrThrow_(const std::vector<int>& nodes) const;
 
-    // Internal: single run bez fallbacka, s eksplicitnim maxSegmentLen parametrom.
+    // Internal: single run without fallback, with an explicit maxSegmentLen parameter.
     CarAssignmentDPResult optimizeWithMaxSegLen_(const std::vector<int>& nodes,
                                                 int maxSegmentLen) const;
     
     double evaluateCostViewWithMaxSegLen_(const std::function<int(int)>& getNode,
                                          int maxSegmentLen) const;
 
-    // postojeće (ali sada implementiraj varijantu koja prima scratch)
+    // Scratch-based variant of evaluateCostViewWithMaxSegLen_.
     double evaluateCostViewWithMaxSegLenScratch_(const std::function<int(int)>& getNode,
                                                 int maxSegmentLen,
                                                 Scratch& scratch) const;
 
-                                         // Internal: fallback wrapper za optimize() / evaluateCostView()
+    // Internal: fallback wrapper for optimize() / evaluateCostView()
     CarAssignmentDPResult optimizeWithFallback_(const std::vector<int>& nodes) const;
 
     double evaluateCostViewWithFallback_(const std::function<int(int)>& getNode) const;
 
     int normalizeMaxSegLen_(int L) const;
 
-    // Opcija 1 (najjednostavnije): scratch po DP instanci
-    // mutable jer evaluateCostView je const
+    // Per-instance scratch buffer; mutable because evaluateCostView is const.
     mutable Scratch scratch_;
 };
 

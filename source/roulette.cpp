@@ -55,7 +55,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const 
         for (int j : nextCandidates) {
             if (forcedNextOrNeg1 >= 0 && j != forcedNextOrNeg1) continue;
 
-            // Težina za čvor j (kretanje po turi): alphaNodes, betaNodes
+            // Weight for node j (tour movement): alphaNodes, betaNodes
             double tauNode = 0.0;
             double minCost = std::numeric_limits<double>::max();
             for (int c = 0; c < C; ++c) {
@@ -78,7 +78,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const 
             }
         }
 
-        // Ako nemamo validnih težina, biraj uniformno (stabilan fallback)
+        // No valid weights: fall back to a uniform, stable choice.
         if (items.empty() || !(sum > 0.0) || !std::isfinite(sum)) {
             int j = forcedNextOrNeg1 >= 0 ? forcedNextOrNeg1
                                           : nextCandidates[rng.uniformInt((int)nextCandidates.size())];

@@ -65,35 +65,32 @@ CachedFixedTourCarAssigner::Stats CachedFixedTourCarAssigner::stats() const
 
 bool CachedFixedTourCarAssigner::computeAllowReverse_(const cars_tsplib::Instance& inst) const
 {
-    // Sigurno reverse canonicaliziranje samo ako je instanca stvarno simetrična.
+    // Only allow reverse canonicalization if the instance is actually symmetric.
 
-    // 1) Travel symmetry mora biti eksplicitno poznata i true, ili auto-detect mora potvrditi.
+    // Travel symmetry must be explicitly known true, or auto-detect must confirm it.
     bool travelSymKnownTrue = inst.edgeWeightIsSymmetric.has_value() && *inst.edgeWeightIsSymmetric;
     bool travelSymKnownFalse = inst.edgeWeightIsSymmetric.has_value() && !*inst.edgeWeightIsSymmetric;
 
     if (travelSymKnownFalse) return false;
 
-    // 2) Return: ako postoji i tag kaže ASYMMETRIC => nema reverse.
+    // If return costs exist and are explicitly tagged asymmetric, reverse is unsafe.
     if (inst.hasReturnCosts())
     {
         if (inst.returnRateIsAsymmetric.has_value() && *inst.returnRateIsAsymmetric)
             return false;
     }
 
-    // Ako su tagovi kompletni i podržavaju simetriju:
     if (travelSymKnownTrue)
     {
         if (!inst.hasReturnCosts()) return true;
 
-        // Return costs prisutni: reverse je siguran samo ako imamo eksplicitno "nije asimetrično"
-        // (ili ako parser ima nekakav "symmetric" tag; ti imaš samo returnRateIsAsymmetric optional).
+        // Return costs present: reverse is only safe if we know they're not asymmetric.
         if (inst.returnRateIsAsymmetric.has_value() && !*inst.returnRateIsAsymmetric)
             return true;
 
-        // Unknown return symmetry -> konzervativno false (osim auto-detect).
+        // Unknown return symmetry -> fall through (conservative false unless auto-detect confirms).
     }
 
-    // Unknown: opcionalno auto-detect
     if (opt_.autoDetectSymmetryWhenUnknown && opt_.symmetryDetectSamples > 0)
         return detectSymmetryBySampling_(inst);
 
@@ -106,7 +103,7 @@ bool CachedFixedTourCarAssigner::detectSymmetryBySampling_(const cars_tsplib::In
     const int C = inst.cars();
     if (N <= 1 || C <= 0) return true;
 
-    // Deterministički RNG (ne želimo ovisiti o global RNG-u)
+    // Deterministic RNG (avoid depending on the global RNG)
     std::uint64_t seed = 0x9e3779b97f4a7c15ULL;
     seed ^= (std::uint64_t)N + 0xBF58476D1CE4E5B9ULL;
     seed ^= (std::uint64_t)C + 0x94D049BB133111EBULL;
@@ -153,8 +150,8 @@ void CachedFixedTourCarAssigner::buildCanonicalKey_(const std::vector<int>& node
     const int N = (int)nodes.size();
     if (N <= 1) return;
 
-    // nodes<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0 pretpostavka: reverse forma je [0, nodes[N-1], nodes[N-2], ..., nodes<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[1]</a>]
-    // Odluči leksikografski bez alokacije, pa tek onda eventualno napravi reverse.
+    // nodes[0] == 0 assumed: reversed form is [0, nodes[N-1], nodes[N-2], ..., nodes[1]].
+    // Decide lexicographically without allocating, then reverse only if needed.
     bool useRev = false;
     for (int i = 0; i < N; ++i)
     {
@@ -188,7 +185,7 @@ std::uint64_t CachedFixedTourCarAssigner::hashKey_(const std::vector<int>& key) 
         std::uint64_t x = (std::uint64_t)(std::uint32_t)v;
         h ^= splitmix64_(x + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
     }
-    // dodatno ubaci duljinu
+    // Mix in the length too
     h ^= splitmix64_((std::uint64_t)key.size());
     return h;
 }
@@ -252,7 +249,7 @@ void CachedFixedTourCarAssigner::insertOrUpdate_(const std::vector<int>& key,
 {
     if (opt_.capacity == 0) return;
 
-    // update ako postoji
+    // Update if it already exists
     if (Entry* ex = findEntryMut_(key, h))
     {
         ex->cost = cost;
@@ -264,13 +261,13 @@ void CachedFixedTourCarAssigner::insertOrUpdate_(const std::vector<int>& key,
         return;
     }
 
-    // insert FIFO (overwrite na cursor_)
+    // Insert FIFO (overwrite at cursor_)
     const std::size_t index = cursor_;
     cursor_ = (cursor_ + 1) % entries_.size();
 
     Entry& slot = entries_[index];
 
-    // izbaci stari zapis iz bucket-a
+    // Evict the stale entry from its bucket
     if (slot.valid)
         eraseIndexFromBucket_(slot.h, index);
 
@@ -299,7 +296,6 @@ double CachedFixedTourCarAssigner::evaluateCost(const std::vector<int>& nodes) c
     if (opt_.threadSafe)
     {
         std::lock_guard<std::mutex> lk(mx_);
-        // padamo na “unsafe” implementaciju unutar lock-a
     }
 
     if (opt_.capacity == 0)
@@ -332,7 +328,6 @@ double CachedFixedTourCarAssigner::reassignCars(const std::vector<int>& nodes,
     if (opt_.threadSafe)
     {
         std::lock_guard<std::mutex> lk(mx_);
-        // padamo na “unsafe” implementaciju unutar lock-a
     }
 
     if (opt_.capacity == 0)
@@ -352,8 +347,8 @@ double CachedFixedTourCarAssigner::reassignCars(const std::vector<int>& nodes,
             carPerEdgeOut = e->cars;
             return e->cost;
         }
-        // ima cost, ali nema cars: i dalje je hit za cost, ali moramo izračunati cars
-        // (ne brojimo kao reasHits jer nije full hit)
+        // Cost is cached but cars are not: still need to compute cars, so this
+        // does not count as a full reasHit.
     }
 
     ++stats_.reasMiss;

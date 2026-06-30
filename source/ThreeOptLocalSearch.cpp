@@ -26,7 +26,7 @@ ThreeOptLocalSearch::ThreeOptLocalSearch(std::shared_ptr<const cars_tsplib::Inst
     if (N <= 0) throw std::runtime_error("ThreeOptLocalSearch: inst->n() <= 0");
     if (C <= 0) throw std::runtime_error("ThreeOptLocalSearch: inst->cars() <= 0");
 
-    // Precompute minTravel
+    // Precompute min-over-cars travel cost for every node pair
     minTravel_.assign((std::size_t)N * (std::size_t)N, std::numeric_limits<double>::infinity());
     for (int u = 0; u < N; ++u)
     {
@@ -78,11 +78,11 @@ double ThreeOptLocalSearch::surrogate3OptDelta_(const std::vector<int>& tour,
     const double rem = minTravelFast_(a, b) + minTravelFast_(c, d) + minTravelFast_(e, f);
 
     double add = 0.0;
-    
-    // 7 varijanti 3-opt move-a
+
+    // The 7 reconnection variants of a 3-opt move
     switch (variant)
     {
-        case 0: // Original (no change) - ne koristimo
+        case 0: // Original (no change) - unused
             add = rem;
             break;
         case 1: // Reverse [i, j)
@@ -199,7 +199,7 @@ void ThreeOptLocalSearch::improve(aco::Solution& s, double& cost) const
             double bestDelta = 0.0;
             int bestI = -1, bestJ = -1, bestK = -1, bestVariant = -1;
 
-            // Testiraj sve moguće 3-opt poteze
+            // Scan all candidate 3-opt moves
             for (int i = 1; i < N - 4; ++i)
             {
                 const int anchor1 = cand.node[(std::size_t)(i - 1)];
@@ -220,7 +220,7 @@ void ThreeOptLocalSearch::improve(aco::Solution& s, double& cost) const
 
                         if (!isValidCut_(i, j, k, N)) continue;
 
-                        // Testiraj sve 7 varijanti (osim 0 - original)
+                        // Test all 7 variants (skip 0, the no-op original)
                         for (int variant = 1; variant <= 6; ++variant)
                         {
                             const double delta = surrogate3OptDelta_(cand.node, i, j, k, variant);
@@ -240,7 +240,7 @@ void ThreeOptLocalSearch::improve(aco::Solution& s, double& cost) const
             if (bestI >= 0 && bestDelta < -opt_.eps)
             {
                 apply3OptMove_(cand.node, bestI, bestJ, bestK, bestVariant);
-                
+
                 // Rebuild pos
                 std::fill(pos.begin(), pos.end(), -1);
                 for (int idx = 0; idx < N; ++idx)
@@ -254,7 +254,7 @@ void ThreeOptLocalSearch::improve(aco::Solution& s, double& cost) const
         double candCost = dp_->reassignCars(cand.node, cand.car);
         if (!std::isfinite(candCost)) continue;
 
-        // Polish ako je postavljen
+        // Apply polish LS if configured
         if (candCost + opt_.eps < bestCost)
         {
             if (opt_.polish) {

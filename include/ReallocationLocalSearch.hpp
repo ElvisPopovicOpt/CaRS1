@@ -24,10 +24,10 @@ struct RelocationOptions
 
     bool reassignCarsAtStart = true;
 
-    // Candidate list (po node-u)
+    // Candidate list, indexed per node
     std::shared_ptr<const aco::CandidateListCache> cand = nullptr;
 
-    // surrogate filter: 0 = zovi DP samo kad surrogate pokazuje strogo poboljšanje
+    // Surrogate filter threshold: 0 = only call DP when surrogate shows strict improvement
     double minSurrogateGain = 0.0;
 };
 
@@ -45,7 +45,7 @@ private:
     RelocationOptions opt_;
     std::shared_ptr<FixedTourCarAssignerDP> dp_;
 
-    // scratch za DP view-evaluaciju (bez realloc)
+    // Scratch buffer for DP view-evaluation, avoids reallocation
     mutable localSearch::Scratch scratch_;
 };
 

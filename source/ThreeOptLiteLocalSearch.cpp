@@ -25,7 +25,7 @@ ThreeOptLiteLocalSearch::ThreeOptLiteLocalSearch(std::shared_ptr<const cars_tspl
     if (N <= 0) throw std::runtime_error("ThreeOptLiteLocalSearch: inst->n() <= 0");
     if (C <= 0) throw std::runtime_error("ThreeOptLiteLocalSearch: inst->cars() <= 0");
 
-    // Precompute minTravel (O(C*N^2)) -> poslije je O(1) po pozivu.
+    // Precompute minTravel (O(C*N^2)) so each later call is O(1).
     minTravel_.assign((std::size_t)N * (std::size_t)N, std::numeric_limits<double>::infinity());
 
     for (int u = 0; u < N; ++u)
@@ -54,18 +54,18 @@ double ThreeOptLiteLocalSearch::minTravelFast_(int u, int v) const
 
 bool ThreeOptLiteLocalSearch::isValidCut_(int i, int j, int k, int N)
 {
-    // čuvaj node<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0 fiksno: i mora biti >=1, i nikad ne režemo oko 0-bridova
+    // Keep node[0]==0 fixed: i must be >=1, and we never cut around the 0-edges.
     if (N < 6) return false;
     if (i < 1) return false;
     if (!(i < j && j < k)) return false;
     if (k >= N) return false;
 
-    // Osiguraj da su segmenti S1=[i..j-1] i S2=[j..k-1] ne-prazni
+    // Ensure segments S1=[i..j-1] and S2=[j..k-1] are non-empty.
     if (j == i) return false;
     if (k == j) return false;
 
-    // Dodatno: izbjegni rezanje "zadnjeg" closure brida (N-1 -> 0) tako da k <= N-1 (što već pokriva k<N)
-    // i izbjegni rezanje (0->1) tako da i>=1 (pokriveno).
+    // k<N already keeps us from cutting the closing edge (N-1 -> 0),
+    // and i>=1 already keeps us from cutting the (0->1) edge.
     return true;
 }
 
@@ -73,10 +73,8 @@ double ThreeOptLiteLocalSearch::surrogate3OptDeltaSwap_(const std::vector<int>& 
                                                        int i, int j, int k,
                                                        bool revS1, bool revS2) const
 {
-    // Režemo bridove: A->B, C->D, E->F
-    // A=tour[i-1], B=tour[i]
-    // C=tour[j-1], D=tour[j]
-    // E=tour[k-1], F=tour[k]
+    // Cutting edges A->B, C->D, E->F:
+    // A=tour[i-1], B=tour[i]; C=tour[j-1], D=tour[j]; E=tour[k-1], F=tour[k]
     const int A = tour[(std::size_t)i - 1];
     const int B = tour[(std::size_t)i];
     const int C = tour[(std::size_t)j - 1];
@@ -86,15 +84,15 @@ double ThreeOptLiteLocalSearch::surrogate3OptDeltaSwap_(const std::vector<int>& 
 
     const double rem = minTravelFast_(A, B) + minTravelFast_(C, D) + minTravelFast_(E, F);
 
-    // start/end za S1=[i..j-1]
+    // start/end for S1=[i..j-1]
     const int start1 = revS1 ? C : B;
     const int end1   = revS1 ? B : C;
 
-    // start/end za S2=[j..k-1]
+    // start/end for S2=[j..k-1]
     const int start2 = revS2 ? E : D;
     const int end2   = revS2 ? D : E;
 
-    // Nakon swap: S0 + S2 + S1 + S3
+    // After swap: S0 + S2 + S1 + S3
     const double add =
         minTravelFast_(A, start2) +
         minTravelFast_(end2, start1) +
@@ -108,7 +106,7 @@ void ThreeOptLiteLocalSearch::applySwap_(std::vector<int>& tour,
                                         int i, int j, int k,
                                         bool revS1, bool revS2) const
 {
-    // tour = S0 + S2 + S1 + S3, uz rev opcije za S1 i S2.
+    // tour = S0 + S2 + S1 + S3, with reversal options for S1 and S2.
     const int N = (int)tour.size();
     std::vector<int> tmp;
     tmp.resize((std::size_t)N);
@@ -143,7 +141,7 @@ void ThreeOptLiteLocalSearch::applySwap_(std::vector<int>& tour,
 
     tour.swap(tmp);
 
-    // rebuild pos (sigurno i dovoljno brzo za N<=300)
+    // rebuild pos (simple and fast enough for N<=300)
     std::fill(pos.begin(), pos.end(), -1);
     for (int idx = 0; idx < N; ++idx)
         pos[(std::size_t)tour[(std::size_t)idx]] = idx;
@@ -172,7 +170,7 @@ void ThreeOptLiteLocalSearch::improve(aco::Solution& s, double& cost) const
         for (int idx = 0; idx < N; ++idx)
             pos[(std::size_t)cand.node[(std::size_t)idx]] = idx;
 
-        // 3-opt-lite chain (surrogate-only)
+        // 3-opt-lite chain (surrogate cost only)
         for (int step = 0; step < opt_.chainLen; ++step)
         {
             int bestI = -1, bestJ = -1, bestK = -1;
@@ -183,7 +181,7 @@ void ThreeOptLiteLocalSearch::improve(aco::Solution& s, double& cost) const
             {
                 const int i = rng_.uniformInt(1, N - 3);
 
-                // Anchori kao u LK-lite (oba pokušaj)
+                // Anchors as in LK-lite (try both)
                 const int anchors1[2] = {
                     cand.node[(std::size_t)(i - 1)],
                     cand.node[(std::size_t)i]
@@ -197,10 +195,10 @@ void ThreeOptLiteLocalSearch::improve(aco::Solution& s, double& cost) const
                     for (int v : neighJ)
                     {
                         const int j = pos[(std::size_t)v];
-                        // Trebamo i<j<k<=N-1, a i ne smije biti 0-rez
+                        // Need i<j<k<=N-1, and i must not be a 0-cut.
                         if (j <= i || j >= N - 1) continue; // j in (i..N-2)
 
-                        // drugi anchor oko reza na j
+                        // Second anchor around the cut at j
                         const int anchors2[2] = {
                             cand.node[(std::size_t)(j - 1)],
                             cand.node[(std::size_t)j]
@@ -218,7 +216,7 @@ void ThreeOptLiteLocalSearch::improve(aco::Solution& s, double& cost) const
 
                                 if (!isValidCut_(i, j, k, N)) continue;
 
-                                // 4 varijante revS1 x revS2
+                                // 4 variants of revS1 x revS2
                                 for (int mask = 0; mask < 4; ++mask)
                                 {
                                     const bool revS1 = (mask & 1) != 0;
@@ -248,16 +246,16 @@ void ThreeOptLiteLocalSearch::improve(aco::Solution& s, double& cost) const
             applySwap_(cand.node, pos, bestI, bestJ, bestK, bestRev1, bestRev2);
         }
 
-        // DP verify: 1x po attemptu (kao u LK-lite)
+        // DP verify: once per attempt (as in LK-lite)
         double candCost = dp_->reassignCars(cand.node, cand.car);
         if (!std::isfinite(candCost)) continue;
 
-        // polish samo ako je već bolje
+        // Only polish if already better
         if (candCost + opt_.eps < bestCost)
         {
             if (opt_.polish) {
                 opt_.polish->improve(cand, candCost);
-                // (polish je LS chain koji može mijenjati turu)
+                // polish is an LS chain that may modify the tour
                 if (dp_) {
                     candCost = dp_->reassignCars(cand.node, cand.car);
                     if (!std::isfinite(candCost)) continue;

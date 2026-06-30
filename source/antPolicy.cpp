@@ -23,7 +23,7 @@ AntPolicyCandidateListRoulette::AntPolicyCandidateListRoulette(
     , returnFactor_(returnFactor)
     , sampleCars_(sampleCars)
     , enforceNoRerent_(enforceNoRerent)
-    , q0_(std::max(0.0, std::min(1.0, q0))) // NEW
+    , q0_(std::max(0.0, std::min(1.0, q0)))
 {}
 
 
@@ -56,27 +56,24 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
     s.node[0] = 0;
     visited[0] = 1;
 
-    // Kretanje po turi (odabir sljedećeg čvora): alpha/beta za čvorove
+    // Tour movement (next-node selection): alpha/beta for nodes
     const double alphaNodes = ctx.params->alphaNodes;
     const double betaNodes  = ctx.params->betaNodes;
-    // Izbor automobila na bridu: alpha/beta za automobile
+    // Car selection on an edge: alpha/beta for cars
     const double alphaCars = ctx.params->alphaCars;
     const double betaCars   = ctx.params->betaCars;
 
-    // Return komponenta je aktivna samo ako instanca ima return troškove
-    // i pheromone accessor podržava return feromone.
+    // Return component is active only if the instance has return costs
+    // and the pheromone accessor supports return pheromones.
     const bool useReturn =
         inst.hasReturnCosts() && ctx.pher->hasReturnPheromones();
-    // Return komponenta u POLICYJU (konstrukciji) se koristi samo ako:
-    //  - instanca ima return troškove,
-    //  - pheromone accessor ima tauReturn,
-    //  - i returnFactor_ > 0.0.
-    // Kad je returnFactor_ == 0.0, kompletan return dio se preskače (nema overhead-a).
+    // The return component is additionally used in the policy only when returnFactor_ > 0.0;
+    // if returnFactor_ == 0.0 the whole return path is skipped (no overhead).
     const bool useReturnPolicy = useReturn && (returnFactor_ > 0.0);
 
-    // Stanje potrebno za switch trošak (ekvivalentno CostModelCars::evaluate):
-    int prevCar    = -1; // nepoznato na pos=0 => nema switch penala
-    int rentalNode = 0;  // lastCarNode u cost modelu; start je 0
+    // State needed for switch cost (equivalent to CostModelCars::evaluate):
+    int prevCar    = -1; // unknown at pos=0 => no switch penalty
+    int rentalNode = 0;  // lastCarNode in the cost model; start is 0
 
     auto choose_from_pairs = [&](int currentNode,
                                  const std::vector<int>& nextCandidates,
@@ -90,7 +87,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
         items.reserve((size_t)nextCandidates.size() * (size_t)std::max(1, C));
 
         double sum = 0.0;
-        // Precompute za return komponentu u policyju (koristi se samo ako useReturnPolicy==true).
+        // Precomputed return-component exponents, used only when useReturnPolicy==true.
         double alphaR = 0.0;
         double betaR  = 0.0;
         if (useReturnPolicy) 
@@ -110,7 +107,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
             {
                 if (forcedNextOrNeg1 >= 0 && j != forcedNextOrNeg1) continue;
 
-                // Agregacija za čvor (brid): tauNode, etaNode za kretanje po turi (alphaNodes, betaNodes)
+                // Node (edge) aggregation: tauNode, etaNode for tour movement (alphaNodes, betaNodes)
                 double tauNode = 0.0;
                 double minCost = std::numeric_limits<double>::max();
                 for (int c = 0; c < C; ++c) 
@@ -123,7 +120,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
                 const double W_node = std::pow(tauNode, alphaNodes) * std::pow(etaNode, betaNodes);
                 if (!(W_node > 0.0) || !std::isfinite(W_node)) continue;
 
-                // Suma po autima (izbor auta: alphaCars, betaCars); DP će kasnije dodijeliti auto
+                // Sum over cars (car choice: alphaCars, betaCars); DP assigns the actual car later
                 double wj = 0.0;
                 for (int c = 0; c < C; ++c) 
                 {
@@ -176,8 +173,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
                 return {j, 0}; // dummy car
             }
 
-            // exploitation jump (argmax) ---
-            // OPTIMIZACIJA: Koristi dinamički q0 iz ctx.adaptiveQ0 ako je dostupan
+            // Exploitation jump (argmax); prefer dynamic q0 from ctx.adaptiveQ0 if available
             const double q0 = (ctx.adaptiveQ0 >= 0.0) ? ctx.adaptiveQ0 : q0_;
             if (q0 > 0.0 && rng.uniform01() < q0) 
             {
@@ -204,7 +200,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
         {
             if (forcedNextOrNeg1 >= 0 && j != forcedNextOrNeg1) continue;
 
-            // Težina za čvor j (kretanje po turi): alphaNodes, betaNodes
+            // Weight for node j (tour movement): alphaNodes, betaNodes
             double tauNode = 0.0;
             double minCost = std::numeric_limits<double>::max();
             for (int c = 0; c < C; ++c) 
@@ -223,7 +219,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
                 {
                     if (c != prevCarState && carLocked[(size_t)c]) continue;
                 }
-                // Težina za auto na bridu (i->j): alphaCars, betaCars
+                // Weight for car on edge (i->j): alphaCars, betaCars
                 const double tMove = ctx.pher->tauMove(c, currentNode, j);
                 const double hMove = eta(eps_, inst.travelCost(c, currentNode, j));
                 double w = W_node * (std::pow(tMove, alphaCars) * std::pow(hMove, betaCars));
@@ -238,14 +234,14 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
                         const double tR = ctx.pher->tauReturn(prevCarState, currentNode, rentalNodeState);
                         const double hR = eta(eps_, rc);
 
-                        // multiplicativno (minimalno invazivno): pojača/oslabi switch
+                        // Multiplicative, minimally invasive: strengthens/weakens the switch weight
                         w *= std::pow(tR, alphaR) * std::pow(hR, betaR);
                     }
 
-                    // (2) Ako je ovo zadnji korak (lastNode -> 0), uključi i final return
-                    if (isLastStepToStart) 
+                    // If this is the last step (lastNode -> 0), also factor in the final return
+                    if (isLastStepToStart)
                     {
-                        // rentalNode nakon mogućeg switcha:
+                        // rentalNode after a possible switch:
                         const int rentalAfter = (prevCarState >= 0 && c != prevCarState)
                                                 ? currentNode
                                                 : rentalNodeState;
@@ -265,8 +261,8 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
             }
         }
 
-        // Fallback: uniformno
-        if (items.empty() || !(sum > 0.0) || !std::isfinite(sum)) 
+        // Fallback: uniform sampling
+        if (items.empty() || !(sum > 0.0) || !std::isfinite(sum))
         {
             int j = (forcedNextOrNeg1 >= 0)
                 ? forcedNextOrNeg1
@@ -275,8 +271,7 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
             return {j, c};
         }
 
-        // exploitation jump (argmax over (j,c)) ---
-        // OPTIMIZACIJA: Koristi dinamički q0 iz ctx.adaptiveQ0 ako je dostupan
+        // Exploitation jump (argmax over (j,c)); prefer dynamic q0 from ctx.adaptiveQ0 if available
         const double q0 = (ctx.adaptiveQ0 >= 0.0) ? ctx.adaptiveQ0 : q0_;
         if (q0 > 0.0 && rng.uniform01() < q0) {
             size_t bestIdx = 0;
@@ -296,12 +291,10 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
         }
         return {items.back().j, items.back().c};
     }; // choose_from_pairs
-    // Napomena:
-    // - sampleCars_==true: policy uzorkuje (nextNode, car) parove (default i najbolji za Brasil30n CaRS).
-    // - sampleCars_==false: node-only mod (ablacija); DP kasnije dodjeljuje aute.
+    // Note: sampleCars_==true samples (nextNode, car) pairs jointly (default, best for Brasil30n CaRS);
+    // sampleCars_==false builds node order only (ablation), with cars assigned later by DP.
 
-
-    // Glavna konstrukcija ture (pos = indeks brida/odluke)
+    // Main tour construction loop (pos = edge/decision index)
     const int fav = ctx.params->favorites;
     const int maxCand = (fav > 0) ? std::min(fav, N - 1) : 0;
 
@@ -329,17 +322,16 @@ Solution AntPolicyCandidateListRoulette::construct(const AntContext& ctx) const
         auto [nextNode, chosenCar] =
             choose_from_pairs(i, cand, -1, prevCar, rentalNode, /*isLastStepToStart*/ false);
 
-        // Postavi auto za brid i->nextNode
+        // Set car for edge i->nextNode
         s.car[(size_t)pos] = chosenCar;
 
-        // Ažuriraj stanje switcha (ekvivalent evaluate() logike)
-        // "no re-rent" je neovisan od returnFactor-a (možeš ga htjeti i kad returnFactor=0),
-        // ali nema smisla dirati carLocked ako feature nije uključen.
+        // Update switch state (equivalent to evaluate() logic). "No re-rent" is independent
+        // of returnFactor_, but carLocked is only touched when the feature is enabled.
         if (enforceNoRerent_ && prevCar >= 0 && chosenCar != prevCar) {
             carLocked[(size_t)prevCar] = 1;
         }
 
-        // rentalNode je potreban samo ako policy stvarno koristi return logiku.
+        // rentalNode is only needed when the policy actually uses return logic.
         if (useReturnPolicy && prevCar >= 0 && chosenCar != prevCar) {
             rentalNode = i;
         }
@@ -352,7 +344,7 @@ prevCar = chosenCar;
         visited[(size_t)nextNode] = 1;
     }
 
-    // Zadnji brid: lastNode -> start (0), uz moguće switch + final return u težini
+    // Last edge: lastNode -> start (0), with possible switch + final return in the weight
     const int lastNode = s.node[(size_t)N - 1];
     {
         std::vector<int> onlyStart = {0};

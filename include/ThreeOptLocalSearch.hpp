@@ -20,15 +20,15 @@ struct ThreeOptOptions
     std::shared_ptr<const aco::CandidateListCache> cand;
 
     int attempts = 3;
-    int maxPasses = 5;  // koliko puta prolazimo kroz sve moguće 3-opt poteze
+    int maxPasses = 5;  // max number of passes over all candidate 3-opt moves
 
     double eps = 1e-12;
 
-    // Opcionalno: nakon uspješnog 3-opt verify, pusti polish LS
+    // Optional: run this LS as a polish step after a successful 3-opt verify
     std::shared_ptr<const aco::ILocalSearch> polish = nullptr;
 };
 
-// Puni 3-opt algoritam koji testira sve 7 varijanti rezanja 3 brida
+// Full 3-opt: tests all 7 reconnection variants for each cut
 class ThreeOptLocalSearch final : public aco::ILocalSearch
 {
 public:
@@ -41,15 +41,15 @@ public:
     void improve(aco::Solution& s, double& cost) const override;
 
 private:
-    // Precomputed min_c travelCost(c,u,v)
+    // Precomputed min over cars of travelCost(c,u,v)
     double minTravelFast_(int u, int v) const;
 
-    // Surrogate delta za 3-opt move (sve 7 varijanti)
+    // Surrogate cost delta for a 3-opt move (variants 0-6)
     double surrogate3OptDelta_(const std::vector<int>& tour,
                                 int i, int j, int k,
                                 int variant) const;
 
-    // Primijeni 3-opt move (variant 0-6)
+    // Apply a 3-opt move (variant 0-6)
     void apply3OptMove_(std::vector<int>& tour,
                         int i, int j, int k,
                         int variant) const;
@@ -61,7 +61,7 @@ private:
     ThreeOptOptions opt_;
     std::shared_ptr<localSearch::FixedTourCarAssignerDP> dp_;
 
-    // minTravel[u*N + v]
+    // Flattened minTravel[u*N + v]
     std::vector<double> minTravel_;
 
     mutable aco::Rng rng_;

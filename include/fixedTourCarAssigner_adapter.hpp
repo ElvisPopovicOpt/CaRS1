@@ -4,7 +4,7 @@
 #include <vector>
 #include <interfaces.hpp>
 
-// forward declaration da header ostane lagan
+// forward declaration to keep this header lightweight
 namespace localSearch { class FixedTourCarAssignerDP; }
 
 namespace aco 

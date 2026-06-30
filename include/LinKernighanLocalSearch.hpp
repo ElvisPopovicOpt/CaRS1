@@ -16,26 +16,26 @@ namespace localSearch
 
 struct LinKernighanOptions
 {
-    // Koliko pokušaja (svaki pokušaj = 1x puni LK search)
+    // Number of attempts (each attempt = one full LK search)
     int attempts = 3;
 
-    // Maksimalna dubina backtracking-a (maksimalna duljina sekvence)
+    // Maximum backtracking depth (max sequence length)
     int maxDepth = 20;
 
-    // Maksimalan broj sekvenci za testiranje po pokušaju
+    // Maximum number of sequences tested per attempt
     int maxSequences = 1000;
 
-    // Candidate list (obavezno)
+    // Candidate list (required)
     std::shared_ptr<const aco::CandidateListCache> cand = nullptr;
 
-    // Opcionalno: nakon uspješnog LK verify, pusti polish LS (npr. 2opt+reloc+2opt)
+    // Optional: after a successful LK verify, run a polish LS (e.g. 2opt+reloc+2opt)
     std::shared_ptr<const aco::ILocalSearch> polish = nullptr;
 
     double eps = 1e-12;
 };
 
-// Puni Lin-Kernighan algoritam s backtracking-om
-// Gradi sekvence 2-opt poteza i prihvaća ih ako je ukupni gain > 0
+// Full Lin-Kernighan algorithm with backtracking.
+// Builds sequences of 2-opt moves and accepts them if total gain > 0.
 class LinKernighanLocalSearch final : public aco::ILocalSearch
 {
 public:
@@ -43,7 +43,7 @@ public:
                            LinKernighanOptions opt,
                            std::shared_ptr<FixedTourCarAssignerDP> dp);
 
-    // Reset RNG stanja (pozovi na početku stagnation-eventa s deriviranim seedom)
+    // Reset RNG state (call at the start of a stagnation event with a derived seed)
     void resetSeed(uint64_t seed) const override;
 
     void improve(aco::Solution& s, double& cost) const override;
@@ -77,14 +77,14 @@ private:
 
     static bool isValid2OptMove(int i, int k, int N);
     static void applyReverseAndUpdatePos(std::vector<int>& tour, std::vector<int>& pos, int i, int k);
-    
+
     double minTravelFast_(int u, int v) const;
     double surrogate2OptDelta_(const std::vector<int>& tour, int i, int k) const;
-    
-    // Puni LK search s backtracking-om
+
+    // Full LK search with backtracking
     bool searchLKSequence(LKState& state, int depth, int lastRemoved) const;
-    
-    // Pronađi najbolji sljedeći potez
+
+    // Find the best next move
     bool findBestNextMove(const LKState& state, int lastRemoved, Move& bestMove) const;
 };
 

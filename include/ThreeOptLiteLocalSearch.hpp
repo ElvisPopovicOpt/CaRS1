@@ -23,13 +23,13 @@ struct ThreeOptLiteOptions
     int chainLen = 8;
     int triesPerStep = 30;
 
-    // Limit koliko kandidata uzimamo iz candidate liste na svakoj razini (za j i za k)
+    // Max candidates taken from the candidate list at each level (for j and k).
     int topKPerI = 8;
 
     double eps = 1e-12;
     bool requireNegativeSurrogate = true;
 
-    // Ako je postavljeno, zove se samo kad je DP-verified rješenje već bolje.
+    // If set, invoked only after the DP-verified solution is already better.
     std::shared_ptr<const aco::ILocalSearch> polish;
 };
 
@@ -48,12 +48,12 @@ private:
     // Precomputed min_c travelCost(c,u,v)
     double minTravelFast_(int u, int v) const;
 
-    // Surrogate delta za 3-opt segment-swap (swap S1 i S2), s opcionalnim reverzijama segmenata.
+    // Surrogate delta for a 3-opt segment swap (S1 <-> S2), with optional segment reversal.
     double surrogate3OptDeltaSwap_(const std::vector<int>& tour,
                                    int i, int j, int k,
                                    bool revS1, bool revS2) const;
 
-    // Primijeni swap potez i rebuild pos (jednostavno i sigurno za N<=300)
+    // Applies the swap move and rebuilds pos (simple and fast enough for N<=300).
     void applySwap_(std::vector<int>& tour,
                     std::vector<int>& pos,
                     int i, int j, int k,
@@ -66,7 +66,7 @@ private:
     ThreeOptLiteOptions opt_;
     std::shared_ptr<localSearch::FixedTourCarAssignerDP> dp_;
 
-    // minTravel[u*N + v]
+    // minTravel[u*N + v]: min over cars c of travelCost(c,u,v)
     std::vector<double> minTravel_;
 
     mutable aco::Rng rng_;

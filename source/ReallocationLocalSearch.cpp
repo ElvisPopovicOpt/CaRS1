@@ -53,7 +53,7 @@ static inline void applyRelocateBeforeAndUpdatePos(std::vector<int>& tour,
     }
 }
 
-// surrogate: min_car travelCost(a,b)
+// Surrogate: cheapest travel cost over cars between a and b
 static inline double minTravel(const cars_tsplib::Instance& inst, int a, int b)
 {
     double best = std::numeric_limits<double>::infinity();
@@ -62,8 +62,7 @@ static inline double minTravel(const cars_tsplib::Instance& inst, int a, int b)
     return best;
 }
 
-// surrogate delta za insert-before (B):
-// remove u iz (a-u-b) i insert između (p-v): p-u-v
+// Surrogate delta for insert-before: remove u from (a-u-b), insert between (p-v) giving p-u-v
 static inline double surrogateRelocateBeforeDelta(const cars_tsplib::Instance& inst,
                                                   const std::vector<int>& tour,
                                                   int r, int k)
@@ -97,12 +96,12 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
     if (s.node[0] != 0) throw std::runtime_error("RelocationLocalSearch: node[0] must be 0");
     if ((int)s.car.size() != N) s.car.assign((std::size_t)N, 0);
 
-    // baseline (opcionalno)
+    // Optional baseline car reassignment
     if (opt_.reassignCarsAtStart && useCarDP) {
         cost = dp_->reassignCars(s.node, s.car);
     }
 
-    // pos[node] = index
+    // pos[node] = its index in the tour
     std::vector<int> pos((std::size_t)N, -1);
     for (int i = 0; i < N; ++i) pos[s.node[(std::size_t)i]] = i;
 
@@ -112,16 +111,16 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
     bool anyAccepted = false;
 
     auto isValidMove = [&](int r, int k) -> bool {
-        if (r == 0) return false;     // ne diraj 0
-        if (k == 0) return false;     // ne ubacuj prije 0
+        if (r == 0) return false;     // don't move the depot
+        if (k == 0) return false;     // don't insert before the depot
         if (k == r) return false;
-        if (k == r + 1) return false; // no-op: u je već prije v
+        if (k == r + 1) return false; // no-op: u is already right before v
         return true;
     };
 
-    // Early termination: prekini ako nema poboljšanja nakon N uzastopnih pass-ova
+    // Stop early if no improvement for several consecutive passes (scaled to instance size)
     int noImproveCount = 0;
-    const int maxNoImprove = std::max(10, N / 4); // adaptivno po veličini instance
+    const int maxNoImprove = std::max(10, N / 4);
 
     for (int pass = 0; pass < opt_.maxPasses; ++pass)
     {
@@ -137,7 +136,7 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
 
                 if (opt_.maxMoveEvaluations > 0 && evals >= opt_.maxMoveEvaluations) return true;
 
-                // surrogate filter
+                // Surrogate filter
                 const double sur = surrogateRelocateBeforeDelta(*inst_, s.node, r, k);
                 if (!(sur < -opt_.minSurrogateGain)) return false;
 
@@ -146,7 +145,7 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
                     RelocateBeforeView view{s.node, r, k};
                     candCost = dp_->evaluateCostViewScratch([&](int idx){ return view(idx); }, scratch_);
                 } else {
-                    return false; // TSP fallback možeš dodati kasnije
+                    return false; // TODO: TSP fallback without car DP
                 }
 
                 ++evals;
@@ -157,7 +156,7 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
                     cost = candCost;
                     anyAccepted = useCarDP;
                     improvedThisPass = true;
-                    return opt_.firstImprovement; // true => prekini skeniranje i idi u next pass
+                    return opt_.firstImprovement; // true => stop scanning and go to next pass
                 }
 
                 return false;
@@ -171,7 +170,7 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
                     if (opt_.firstImprovement && improvedThisPass) goto next_pass;
                 }
             } else {
-                for (int k = 1; k < N; ++k) { // k=0 ne smije
+                for (int k = 1; k < N; ++k) { // k=0 not allowed
                     const bool stop = tryMove(k);
                     if (stop) goto next_pass;
                     if (opt_.firstImprovement && improvedThisPass) goto next_pass;
@@ -180,13 +179,12 @@ void RelocationLocalSearch::improve(aco::Solution& s, double& cost) const
         }
 
     next_pass:
-        // Early termination: prekini ako nema poboljšanja nakon N uzastopnih pass-ova
         if (improvedThisPass) {
-            noImproveCount = 0; // Resetiraj ako je pronašao poboljšanje
+            noImproveCount = 0;
         } else {
             noImproveCount++;
             if (noImproveCount >= maxNoImprove) {
-                break; // Prekini ranije - nema smisla dalje tražiti
+                break; // No point searching further
             }
         }
     }

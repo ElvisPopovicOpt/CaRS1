@@ -22,7 +22,7 @@ void LkLiteLocalSearch::resetSeed(uint64_t seed) const
 
 bool LkLiteLocalSearch::isValid2OptMove(int i, int k, int N)
 {
-    if (i < 1) return false;        // ne diraj node<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>==0
+    if (i < 1) return false;        // never touch node[0]
     if (k <= i) return false;
     if (k >= N) return false;
     if (k == i + 1) return false;   // no-op
@@ -84,7 +84,7 @@ void LkLiteLocalSearch::improve(aco::Solution& s, double& cost) const
         std::vector<int> pos((size_t)N, -1);
         for (int i = 0; i < N; ++i) pos[(size_t)cand.node[(size_t)i]] = i;
 
-        // chain surrogate 2-opt
+        // Chain of surrogate-guided 2-opt moves.
         for (int step = 0; step < opt_.chainLen; ++step)
         {
             int bestI = -1, bestK = -1;
@@ -127,16 +127,16 @@ void LkLiteLocalSearch::improve(aco::Solution& s, double& cost) const
             applyReverseAndUpdatePos(cand.node, pos, bestI, bestK);
         }
 
-        // DP verify: 1x po attemptu
+        // DP verify, once per attempt.
         double candCost = dp_->reassignCars(cand.node, cand.car);
         if (!std::isfinite(candCost)) continue;
 
-        // polish samo ako je već bolje
+        // Only polish if already better.
         if (candCost + opt_.eps < bestCost)
         {
             if (opt_.polish) {
                 opt_.polish->improve(cand, candCost);
-                // (polish je LS chain koji može mijenjati turu)
+                // Polish may change the tour, so re-verify.
                 if (dp_) {
                     candCost = dp_->reassignCars(cand.node, cand.car);
                     if (!std::isfinite(candCost)) continue;

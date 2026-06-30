@@ -21,7 +21,7 @@ LinKernighanLocalSearch::LinKernighanLocalSearch(std::shared_ptr<const cars_tspl
     if (N <= 0) throw std::runtime_error("LinKernighanLocalSearch: inst->n() <= 0");
     if (C <= 0) throw std::runtime_error("LinKernighanLocalSearch: inst->cars() <= 0");
 
-    // Precompute minTravel
+    // Precompute min travel cost
     minTravel_.assign((std::size_t)N * (std::size_t)N, std::numeric_limits<double>::infinity());
     for (int u = 0; u < N; ++u)
     {
@@ -43,7 +43,7 @@ void LinKernighanLocalSearch::resetSeed(uint64_t seed) const
 
 bool LinKernighanLocalSearch::isValid2OptMove(int i, int k, int N)
 {
-    if (i < 1) return false;        // ne diraj node[0]==0
+    if (i < 1) return false;        // never move node[0]==0
     if (k <= i) return false;
     if (k >= N) return false;
     if (k == i + 1) return false;   // no-op
@@ -87,12 +87,12 @@ bool LinKernighanLocalSearch::findBestNextMove(const LKState& state, int lastRem
     bestMove.i = -1;
     bestMove.k = -1;
 
-    // U LK algoritmu, nakon što uklonimo brid, tražimo novi brid koji će povezati
-    // posljednji čvor s nekim drugim čvorom i obrnuti segment između njih
-    
-    if (lastRemoved < 0 || lastRemoved >= N) 
+    // After removing an edge, search for a new edge connecting the last node
+    // to some other node, reversing the segment between them.
+
+    if (lastRemoved < 0 || lastRemoved >= N)
     {
-        // Početak: tražimo sve moguće 2-opt poteze
+        // Start: search all possible 2-opt moves
         for (int i = 1; i < N - 1; ++i)
         {
             const int fromNode = state.tour[(std::size_t)(i - 1)];
@@ -105,7 +105,7 @@ bool LinKernighanLocalSearch::findBestNextMove(const LKState& state, int lastRem
                 
                 if (!isValid2OptMove(i, k, N)) continue;
                 
-                // Provjeri je li već korišten
+                // Skip if already used
                 bool used = false;
                 for (const auto& m : state.sequence)
                 {
@@ -116,7 +116,7 @@ bool LinKernighanLocalSearch::findBestNextMove(const LKState& state, int lastRem
                     }
                 }
                 if (used) continue;
-                
+
                 const double gain = surrogate2OptDelta_(state.tour, i, k);
                 if (gain < bestMove.gain)
                 {
@@ -129,7 +129,7 @@ bool LinKernighanLocalSearch::findBestNextMove(const LKState& state, int lastRem
     }
     else
     {
-        // Nastavak: tražimo potez koji povezuje posljednji čvor
+        // Continuation: search for a move that connects the last node
         const int fromNode = state.tour[(std::size_t)lastRemoved];
         const auto& candidates = opt_.cand->candidates(fromNode);
         
@@ -138,13 +138,13 @@ bool LinKernighanLocalSearch::findBestNextMove(const LKState& state, int lastRem
             const int k = state.pos[(std::size_t)candidate];
             if (k < 0 || k >= N) continue;
             
-            // Pronađi i tako da reverse [i, k] povezuje fromNode s candidate
-            // Tražimo i gdje je tour[i-1] == fromNode ili tour[i] == fromNode
+            // Find i such that reversing [i, k] connects fromNode to candidate,
+            // i.e. tour[i-1] == fromNode or tour[i] == fromNode
             for (int i = 1; i < N; ++i)
             {
                 if (!isValid2OptMove(i, k, N)) continue;
-                
-                // Provjeri je li već korišten
+
+                // Skip if already used
                 bool used = false;
                 for (const auto& m : state.sequence)
                 {
@@ -155,8 +155,8 @@ bool LinKernighanLocalSearch::findBestNextMove(const LKState& state, int lastRem
                     }
                 }
                 if (used) continue;
-                
-                // Provjeri je li ovaj potez povezuje fromNode s candidate
+
+                // Check whether this move connects fromNode to candidate
                 const int prevNode = state.tour[(std::size_t)(i - 1)];
                 const int nextNode = state.tour[(std::size_t)((k + 1) % N)];
                 
@@ -185,37 +185,32 @@ bool LinKernighanLocalSearch::searchLKSequence(LKState& state, int depth, int la
     Move bestMove;
     if (!findBestNextMove(state, lastRemoved, bestMove)) return false;
     
-    // Ako je gain pozitivan, možemo prihvatiti sekvencu
+    // Only continue down this branch if it can still lead to a net negative total gain
     if (state.totalGain + bestMove.gain < -opt_.eps)
     {
-        // Primijeni potez
+        // Apply the move
         applyReverseAndUpdatePos(state.tour, state.pos, bestMove.i, bestMove.k);
         state.totalGain += bestMove.gain;
         state.sequence.push_back(bestMove);
-        
-        // Provjeri je li ovo bolje rješenje
+
         if (state.totalGain < -opt_.eps)
         {
-            return true;  // Prihvati sekvencu
+            return true;  // Improving sequence found, accept it
         }
-        
-        // Nastavi tražiti dalje
+
+        // Keep extending the sequence
         const int newLastRemoved = bestMove.k;
         if (searchLKSequence(state, depth + 1, newLastRemoved))
         {
             return true;
         }
-        
-        // Backtrack: vrati potez
+
+        // Backtrack: undo the move
         applyReverseAndUpdatePos(state.tour, state.pos, bestMove.i, bestMove.k);
         state.totalGain -= bestMove.gain;
         state.sequence.pop_back();
     }
-    
-    // Pokušaj s drugim potezom (ako postoji)
-    // U punom LK algoritmu, testiramo sve moguće poteze
-    // Ovdje koristimo greedy pristup s backtracking-om
-    
+
     return false;
 }
 
@@ -237,7 +232,7 @@ void LinKernighanLocalSearch::improve(aco::Solution& s, double& cost) const
     {
         aco::Solution cand = s;
 
-        // Inicijaliziraj LK state
+        // Initialize LK state
         LKState state;
         state.tour = cand.node;
         state.pos.assign((std::size_t)N, -1);
@@ -246,21 +241,20 @@ void LinKernighanLocalSearch::improve(aco::Solution& s, double& cost) const
         state.totalGain = 0.0;
         state.used.assign((std::size_t)N, false);
 
-        // Pokušaj pronaći LK sekvencu
-        // Počni s random početnom pozicijom
+        // Try to find an LK sequence, starting from a random position
         const int startPos = rng_.uniformInt(1, N - 2);
         bool found = searchLKSequence(state, 0, startPos);
 
         if (found && !state.sequence.empty())
         {
-            // Primijeni najbolju sekvencu
+            // Apply the best sequence found
             cand.node = state.tour;
-            
+
             // DP verify
             double candCost = dp_->reassignCars(cand.node, cand.car);
             if (!std::isfinite(candCost)) continue;
 
-            // Polish ako je postavljen
+            // Polish if configured
             if (candCost + opt_.eps < bestCost)
             {
                 if (opt_.polish) {

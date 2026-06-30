@@ -7,8 +7,8 @@
 namespace aco 
 {
 
-// splitmix64: odličan za deterministički "seed mix"
-inline uint64_t splitmix64(uint64_t& x) 
+// splitmix64: fast, deterministic seed mixer
+inline uint64_t splitmix64(uint64_t& x)
 {
     uint64_t z = (x += 0x9e3779b97f4a7c15ULL);
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -19,13 +19,13 @@ inline uint64_t splitmix64(uint64_t& x)
 inline uint64_t mixSeed(uint64_t baseSeed, uint64_t runIndex) 
 {
     uint64_t x = baseSeed ^ (runIndex + 0x9e3779b97f4a7c15ULL);
-    // nekoliko rundi za stabilan mix
+    // a couple of rounds for a stable mix
     uint64_t a = splitmix64(x);
     uint64_t b = splitmix64(x);
     return a ^ (b + 0x9e3779b97f4a7c15ULL + (a << 6) + (a >> 2));
 }
 
-// ----- SplitMix64 (deterministički seed-mixer) -----
+// ----- SplitMix64 (deterministic seed mixer) -----
 inline uint64_t splitmix64_step(uint64_t& x)
 {
     uint64_t z = (x += 0x9e3779b97f4a7c15ULL);
@@ -34,7 +34,7 @@ inline uint64_t splitmix64_step(uint64_t& x)
     return z ^ (z >> 31);
 }
 
-// mix baseSeed + (a,b,c) u novi seed (stabilno i dobro raspršeno)
+// Mixes baseSeed + (a,b,c) into a new seed (stable, well-dispersed)
 inline uint64_t mixSeed4(uint64_t base, uint64_t a, uint64_t b, uint64_t c)
 {
     uint64_t x = base ^ 0x9e3779b97f4a7c15ULL;
@@ -51,14 +51,14 @@ inline uint64_t mixSeed4(uint64_t base, uint64_t a, uint64_t b, uint64_t c)
     return r1 ^ (r2 + 0x9e3779b97f4a7c15ULL + (r1 << 6) + (r1 >> 2)) ^ (r3 << 1);
 }
 
-// najčešći slučaj: baseSeed + runIndex
+// Common case: baseSeed + runIndex
 inline uint64_t mixSeedRun(uint64_t baseSeed, uint64_t runIndex)
 {
-    // b,c = 0 => deterministički
+    // b,c = 0 => deterministic
     return mixSeed4(baseSeed, 0xA11CE000ULL, runIndex, 0);
 }
 
-// ----- Komponentni tagovi (odvojeni RNG tokovi) -----
+// ----- Component tags (separate RNG streams) -----
 static constexpr uint64_t TAG_ANTS   = 0xA11CE001ULL;
 static constexpr uint64_t TAG_KICK   = 0xA11CE002ULL;
 static constexpr uint64_t TAG_LKLITE = 0xA11CE003ULL;

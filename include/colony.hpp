@@ -8,7 +8,7 @@
 #include <rng.hpp>
 #include <interfaces.hpp>
 
-//forward declaration
+// forward declarations
 namespace cars_tsplib { struct Instance; }
 namespace aco_cli { struct ParamsData; }
 namespace aco { class RunRecorder; class Logger; class IntensifierBinomialLogger; class SurrogateCorrelationLogger; }
@@ -22,9 +22,8 @@ struct RunResult
     int runIndex = -1;
     uint64_t seed = 0;
 
-    EvaluatedSolution best;                 // global best ovog run-a
-    std::vector<double> iterBestCost;       // po iteraciji (iteration-best cost)
-    // kasnije: iterGlobalBestCost, vremena, itd.
+    EvaluatedSolution best;                 // global best of this run
+    std::vector<double> iterBestCost;       // iteration-best cost per iteration
 };
 
 class Colony 
@@ -41,7 +40,7 @@ public:
            std::shared_ptr<const ILocalSearch> localSearch,
            std::shared_ptr<const ILocalSearch> lkLite  = nullptr,
            std::shared_ptr<const ILocalSearch> threeOptLite = nullptr,
-           std::shared_ptr<const IIntensifier> intensifier = nullptr);  // nullptr + intensifierEnabled => auto-create; -intf 0 => ostaje isključen
+           std::shared_ptr<const IIntensifier> intensifier = nullptr);  // nullptr + intensifierEnabled => auto-create; -intf 0 keeps it disabled
 
     RunResult run();
     void setRecorder(std::shared_ptr<aco::RunRecorder> r) { recorder_ = std::move(r); }
@@ -49,11 +48,11 @@ public:
     void setResearchLogger(std::shared_ptr<aco::IntensifierBinomialLogger> r) { researchLogger_ = std::move(r); }
     void setResearchSurrogateLogger(std::shared_ptr<aco::SurrogateCorrelationLogger> r) { researchSurrogateLogger_ = std::move(r); }
 
-    // za ispis
+    // for console/log output
     void setVerbose(bool v, std::mutex* mx) { verbose_ = v; printMx_ = mx; }
-    void updateVerbose(bool v) { verbose_ = v; } // za promjenu verbose flag-a tijekom izvršavanja
-    
-    // Callback za ažuriranje trenutne iteracije (za praćenje napretka)
+    void updateVerbose(bool v) { verbose_ = v; } // update verbose flag while running
+
+    // Callback for reporting current iteration (progress tracking)
     using ProgressCallback = std::function<void(int iteration)>;
     void setProgressCallback(ProgressCallback cb) { progressCallback_ = std::move(cb); }
 
@@ -64,9 +63,7 @@ private:
     uint64_t seed_ = 0;
     Rng rng_;
 
-    //sad i kolonija koristi DP
     std::shared_ptr<const aco::IFixedTourCarAssigner> dp_;
-
 
     std::shared_ptr<const IAntPolicy> antPolicy_;
     std::shared_ptr<IPheromoneModel> pherModel_;
@@ -76,18 +73,18 @@ private:
     std::shared_ptr<const aco::ILocalSearch> threeOptLite_;
     std::shared_ptr<const IIntensifier> intensifier_;
     std::shared_ptr<aco::RunRecorder> recorder_;
-    std::shared_ptr<aco::Logger> logger_; // logger za zapisivanje u fajl i konzolu
-    std::shared_ptr<aco::IntensifierBinomialLogger> researchLogger_; // istraživačko logiranje (binomna analiza, ablacije)
-    std::shared_ptr<aco::SurrogateCorrelationLogger> researchSurrogateLogger_; // surogat vs DP cost za korelaciju
+    std::shared_ptr<aco::Logger> logger_; // logger for file and console output
+    std::shared_ptr<aco::IntensifierBinomialLogger> researchLogger_; // research logging (binomial analysis, ablations)
+    std::shared_ptr<aco::SurrogateCorrelationLogger> researchSurrogateLogger_; // surrogate vs DP cost correlation logging
 
-    // za ispis
+    // for console/log output
     bool verbose_ = false;
     std::mutex* printMx_ = nullptr;
-    ProgressCallback progressCallback_; // callback za ažuriranje napretka
-    
-    // Precomputed min travel cost cache (za surrogate evaluaciju)
+    ProgressCallback progressCallback_; // progress-reporting callback
+
+    // Precomputed min travel cost cache (for surrogate evaluation)
     std::vector<std::vector<double>> minTravelCache_;
-    double avgReturnCost_ = 0.0;  // prosječni return cost (za surogat s return članom)
+    double avgReturnCost_ = 0.0;  // average return cost (for surrogate's return term)
     void precomputeMinTravel_();
 };
 

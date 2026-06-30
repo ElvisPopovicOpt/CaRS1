@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <limits>
 
-// forward declare (ti već imaš Instance u svom projektu)
+// forward declaration of Instance
 namespace cars_tsplib { struct Instance; }
 
 namespace aco 
@@ -18,7 +18,7 @@ public:
     int N() const { return N_; }
     int K() const { return K_; }
 
-    // lista kandidata za i (bez i samog)
+    // candidate list for node i (excluding i itself)
     const std::vector<int>& candidates(int i) const { return cand_[i]; }
 
 private:

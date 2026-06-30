@@ -72,8 +72,8 @@ struct Instance
     const DenseMatrix& ret(int car) const { return returnCostPerCar.at(static_cast<std::size_t>(car)); }
 
     double travelCost(int car, int i, int j) const { return travel(car).at(i, j); }
-    // ako je tsp nema return costs matricu, niti jednu, a formalno ima 1 automobil
-    double returnCost(int car, int i, int j) const { return hasReturnCosts()?ret(car).at(i, j):0.0; } // requires hasReturnCosts()
+    // TSP has no return cost matrices even though it formally has 1 car
+    double returnCost(int car, int i, int j) const { return hasReturnCosts()?ret(car).at(i, j):0.0; }
 
     int carCapacity(int car) const { return passengersLimitPerCar.at(static_cast<std::size_t>(car)); } // CaRSP only
 };

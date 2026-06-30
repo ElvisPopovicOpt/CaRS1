@@ -8,7 +8,7 @@
 #include <parser.hpp>
 #include <FixedTourCarAssignerDP.hpp>   // localSearch::FixedTourCarAssignerDP
 #include <cost_model.hpp>            // aco::CostModelCars
-#include <solution.hpp>            // aco::Solution (prilagodi imena include-a)
+#include <solution.hpp>               // aco::Solution
 #include <selfTest.hpp>
 
 namespace selftest 
@@ -16,7 +16,7 @@ namespace selftest
 
 static bool approxEqual(double a, double b, double eps)
 {
-    // relativno + apsolutno (robustno za male i velike vrijednosti)
+    // relative + absolute tolerance (robust for both small and large values)
     const double diff = std::fabs(a - b);
     const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
     return diff <= eps * scale;
@@ -38,7 +38,7 @@ void runDpConsistencyTest(std::shared_ptr<const cars_tsplib::Instance> inst,
     aco::CostModelCars evaluator(inst);
 
     localSearch::CarAssignmentDPOptions opt;
-    opt.validateTour = true;    // hvata bugove (duplikati, out-of-range, node<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>!=0)
+    opt.validateTour = true;    // catches bugs (duplicates, out-of-range, node[0]!=0)
     opt.maxSegmentLen = -1;     // exact optimal
 
     localSearch::FixedTourCarAssignerDP dp(inst, opt);
@@ -48,7 +48,7 @@ void runDpConsistencyTest(std::shared_ptr<const cars_tsplib::Instance> inst,
     std::vector<int> nodes(static_cast<std::size_t>(N));
     nodes[0] = 0;
 
-    // bazna permutacija 1..N-1
+    // base permutation 1..N-1
     std::vector<int> perm(static_cast<std::size_t>(N - 1));
     std::iota(perm.begin(), perm.end(), 1);
 
@@ -56,7 +56,7 @@ void runDpConsistencyTest(std::shared_ptr<const cars_tsplib::Instance> inst,
         std::shuffle(perm.begin(), perm.end(), rng);
         for (int i = 1; i < N; ++i) nodes[static_cast<std::size_t>(i)] = perm[static_cast<std::size_t>(i - 1)];
 
-        // DP optimalni car assignment
+        // DP-optimal car assignment
         auto dpRes = dp.optimize(nodes);
 
         aco::Solution sol;

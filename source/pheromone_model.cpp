@@ -6,9 +6,8 @@
 #include <parser.hpp>
 #include <params_cli.hpp>
 #include <pheromone_model.hpp>
-#include <parser.hpp>       
-#include <params_cli.hpp>  
-// debug
+#include <parser.hpp>
+#include <params_cli.hpp>
 #include <cassert>
 
 namespace aco 
@@ -27,7 +26,7 @@ PheromoneModelMMASMove::PheromoneModelMMASMove(std::shared_ptr<const cars_tsplib
     N_ = inst_->n();
     C_ = inst_->cars();
 
-    // TSP: returnCostPerCar je empty => false
+    // TSP: returnCostPerCar is empty => false
     hasReturn_ = inst_->hasReturnCosts();
 
     smoothingGamma_ = clamp01(params_.smoothingGammaCars);
@@ -46,7 +45,6 @@ uint64_t PheromoneModelMMASMove::splitmix64_(uint64_t x)
 void PheromoneModelMMASMove::buildCanonicalNodeKey_(const std::vector<int>& nodes,
                                                     std::vector<int>& out) const
 {
-    // Provjeri da nodes nije prazan
     if (nodes.empty()) {
         out.clear();
         return;
@@ -57,11 +55,11 @@ void PheromoneModelMMASMove::buildCanonicalNodeKey_(const std::vector<int>& node
     if (!archiveOpt_.canonicalizeReverseIfSymmetric) return;
     if (!treatAsSymmetric_()) return;
 
-    // node[0]==0 je već kanonski start.
+    // node[0]==0 is already the canonical start.
     std::vector<int> rev(nodes.size());
     rev[0] = nodes[0];
 
-    // Reverse ciklusa uz fiksni start 0:
+    // Reverse the cycle with fixed start 0:
     // forward: 0, a1, a2, ..., a_{N-1}
     // reverse: 0, a_{N-1}, ..., a1
     for (size_t i = 1; i < nodes.size(); ++i)
@@ -72,13 +70,13 @@ void PheromoneModelMMASMove::buildCanonicalNodeKey_(const std::vector<int>& node
 
 bool PheromoneModelMMASMove::treatAsAsymmetric_() const
 {
-    // Thread-safety: provjeri da inst_ nije null (može se dogoditi u multi-threaded okruženju)
+    // Thread-safety: inst_ may be null in a multi-threaded context.
     if (!inst_) {
-        // Ako inst_ je null, pretpostavi da je simetričan (default)
+        // Assume symmetric (default) if inst_ is null.
         return false;
     }
 
-    // Isto kao Colony::preferThreeOptPolish(), samo bez polish konteksta.
+    // Same logic as Colony::preferThreeOptPolish(), without the polish context.
     const bool isATSP = (inst_->type == cars_tsplib::ProblemType::ATSP);
 
     const bool ewAsym =
@@ -93,9 +91,8 @@ bool PheromoneModelMMASMove::treatAsAsymmetric_() const
 
 uint64_t PheromoneModelMMASMove::hashSolution_(const Solution& s) const
 {
-    // Provjeri da solution ima valjane node i car vektore
     if (s.node.empty()) {
-        // Ako je prazan, vrati default hash
+        // Default hash for an empty solution.
         return 0x123456789abcdef0ull;
     }
 
@@ -127,16 +124,15 @@ void PheromoneModelMMASMove::tryAddToArchive_(const EvaluatedSolution& es)
     if (!archiveOpt_.enabled) return;
     if (!(es.cost > 0.0) || !std::isfinite(es.cost)) return;
 
-    // Provjeri konzistentnost rješenja prije dodavanja u archive
-    if ((int)es.sol.node.size() != N_ || (int)es.sol.car.size() != N_) 
+    // Skip solutions inconsistent with N_ (don't add to archive)
+    if ((int)es.sol.node.size() != N_ || (int)es.sol.car.size() != N_)
     {
-        // Preskoči rješenje koje nije konzistentno (ne dodaj u archive)
         return;
     }
 
     uint64_t h = hashSolution_(es.sol);
 
-    // linear scan je OK za A<=40 (brže i jednostavnije od unordered_set u ovom slučaju)
+    // Linear scan is fine for archive size <= 40 (simpler/faster than unordered_set here)
     for (const auto& e : archive_)
         if (e.h == h) return;
 
@@ -160,7 +156,7 @@ void PheromoneModelMMASMove::depositArchiveMemory_()
     if (!archiveOpt_.enabled) return;
     if (archive_.empty()) return;
 
-    // Arhivu drži sortiranu (najbolji prvi)
+    // Keep archive sorted (best first)
     std::sort(archive_.begin(), archive_.end(),
               [](const ArchiveEntry& a, const ArchiveEntry& b) { return a.s.cost < b.s.cost; });
 
@@ -175,8 +171,6 @@ void PheromoneModelMMASMove::depositArchiveMemory_()
     }
 }
 
-
-
 inline double PheromoneModelMMASMove::clamp01(double x)
 {
     if (x < 0.0) return 0.0;
@@ -186,8 +180,7 @@ inline double PheromoneModelMMASMove::clamp01(double x)
 
 void PheromoneModelMMASMove::updateTauBaseFromRestartTarget()
 {
-    // poziva se samo kad su boundsKnown_/tauMin_/tauMax_ validni
-    // restartTargetCars: Mid ili TauMax
+    // Only called once boundsKnown_/tauMin_/tauMax_ are valid.
     if (params_.restartTargetCars == aco_cli::RestartTarget::TauMax) {
         tauBase_ = tauMax_;
     } else { // Mid (default)
@@ -197,7 +190,7 @@ void PheromoneModelMMASMove::updateTauBaseFromRestartTarget()
 
 void PheromoneModelMMASMove::reset()
 {
-    // --- glavne matrice feromona
+    // Main pheromone matrices
     tau_.assign((size_t)C_ * (size_t)N_ * (size_t)N_, 1.0);
 
     if (hasReturn_)
@@ -209,7 +202,7 @@ void PheromoneModelMMASMove::reset()
         tauReturn_.clear();
     }
 
-    // --- MMAS bounds / state
+    // MMAS bounds / state
     boundsKnown_ = false;
     tauMax_ = 1.0;
     tauMin_ = 0.0;
@@ -219,16 +212,11 @@ void PheromoneModelMMASMove::reset()
     explorationLeft_ = 0;
     lastSmoothingApplied_ = false;
 
-    // smoothing (ako je param promjenjiv po runu)
     smoothingGamma_ = clamp01(params_.smoothingGammaCars);
 
-    // --- ARCHIVE memory state (NOVO)
+    // Archive memory state
     archive_.clear();
     archiveCursor_ = 0;
-
-    // Ako koristiš unordered_set za hash-eve, očisti i njega:
-    // archiveHashes_.clear();
-
 }
 
 
@@ -247,23 +235,22 @@ double PheromoneModelMMASMove::tauMove(int car, int i, int j) const
     return tau_[idxMove(car, i, j)];
 }
 
-double PheromoneModelMMASMove::tauReturn(int car, int from, int to) const 
+double PheromoneModelMMASMove::tauReturn(int car, int from, int to) const
 {
-    if (!hasReturn_) return 1.0; // TSP neutralno
+    if (!hasReturn_) return 1.0; // TSP: neutral value
     return tauReturn_[idxReturn(car, from, to)];
 }
 
-int PheromoneModelMMASMove::computeGbPeriodAuto() const 
+int PheromoneModelMMASMove::computeGbPeriodAuto() const
 {
-    // za stagnation ~30–50 (i LK) dobar default
+    // Good default for stagnation ~30-50 (and LK)
     int x = params_.stagnation / 3;
     x = std::max(5, std::min(20, x));
     return x;
 }
 
-bool PheromoneModelMMASMove::isGbIteration(int iterationIndex) const 
+bool PheromoneModelMMASMove::isGbIteration(int iterationIndex) const
 {
-    // params_.gbPeriod je tvoj novi parametar
     const int gb = params_.gbPeriod;
     if (gb < 0) return false;            // off
     int period = (gb == 0) ? computeGbPeriodAuto() : gb;
@@ -295,10 +282,8 @@ void PheromoneModelMMASMove::ensureTauBoundsKnownFromGlobalBest(double Lbest)
         tauMin_ = 0.0; // max-min disabled and pBest disabled => floor 0
     }
 
-
-    // >>> CHANGED: restart/smoothing cilj ovisi o restartTargetCars
+    // Restart/smoothing target depends on restartTargetCars
     updateTauBaseFromRestartTarget();
-    // <<< CHANGED
 
     clampAll();
 }
@@ -498,13 +483,13 @@ void PheromoneModelMMASMove::onIterationEndRanked(int iterationIndex,
                                                   const EvaluatedSolution& globalBest,
                                                   bool globalImproved)
 {
-    // čim imamo prvi globalBest, znamo granice
+    // As soon as we have the first globalBest, the bounds are known.
     if (!boundsKnown_ && std::isfinite(globalBest.cost) && globalBest.cost > 0.0) {
         ensureTauBoundsKnownFromGlobalBest(globalBest.cost);
     }
 
-    // --- ARCHIVE (global memory): update pool (node-only hash recommended)
-    // ranked je već DP-konzistentan (ti to osiguraš u Colony prije poziva)
+    // Archive (global memory): update pool (node-only hash recommended).
+    // ranked is assumed DP-consistent (guaranteed by Colony before this call).
     if (archiveOpt_.enabled)
     {
         tryAddToArchive_(globalBest);
@@ -513,19 +498,19 @@ void PheromoneModelMMASMove::onIterationEndRanked(int iterationIndex,
         trimArchive_();
     }
 
-    // update stagnation counter (feromon-model)
+    // Update stagnation counter
     if (globalImproved) noImprove_ = 0;
     else               noImprove_++;
 
-    // stagnation handling: smoothing prema tauBase (+ opcionalna exploration faza)
-    // Aktiviraj smoothing ranije (1.5× umjesto 2×) za brži reset u kasnoj stagnaciji
+    // Stagnation handling: smoothing toward tauBase (+ optional exploration phase).
+    // Trigger smoothing earlier (1.5x instead of 2x) for a faster reset in late stagnation.
     const int stagPher = (params_.stagnation > 0) ? (int)(1.5 * params_.stagnation) : 0;
 
     lastSmoothingApplied_ = false; // reset for this iteration
     if (stagPher > 0 && noImprove_ >= stagPher)
     {
         trailSmoothing(smoothingGamma_);
-        lastSmoothingApplied_ = true; // mark that smoothing was applied
+        lastSmoothingApplied_ = true;
         noImprove_ = 0;
 
         if (exploration_.enabled) {
@@ -533,7 +518,7 @@ void PheromoneModelMMASMove::onIterationEndRanked(int iterationIndex,
         }
     }
 
-    // Effective rho (exploration: pojačaj evaporaciju na kratko)
+    // Effective rho (exploration phase temporarily boosts evaporation)
     double rhoEff = params_.rhoCars;
     if (explorationLeft_ > 0) {
         rhoEff = std::min(0.99, rhoEff * exploration_.rhoMultiplier);
@@ -544,30 +529,29 @@ void PheromoneModelMMASMove::onIterationEndRanked(int iterationIndex,
     // 1) evaporate
     evaporate(rhoEff);
 
-    // 2) deposit (GB po rasporedu, inače ranked top-W)
-    // ako je global best poboljšan u ovoj iteraciji, uvijek ga deposit-aj odmah.
+    // 2) deposit (GB on schedule, otherwise ranked top-W).
+    // If the global best improved this iteration, always deposit it immediately.
     const bool useGb = isGbIteration(iterationIndex);
 
     const int W = (int)ranked.size();
 
-    // Normalni bonus: ako W ide na 7–8, smanji da update ne bude "preširok"
+    // Reduce the normal bonus when W reaches 7-8 so the update doesn't get too wide.
     const double bonusNormal = (W <= 6) ? 0.5 : 0.35;
 
-    // Helper lambda za provjeru konzistentnosti rješenja
     auto isValidSolution = [this](const Solution& s) -> bool {
         return (int)s.node.size() == N_ && (int)s.car.size() == N_;
     };
 
     if (globalImproved)
     {
-        // 1) novi global best odmah ide u feromone (samo ako je konzistentan)
+        // New global best is deposited immediately (only if consistent).
         if (isValidSolution(globalBest.sol)) {
             depositSolution(globalBest.sol, globalBest.cost, 1.0);
         }
 
         const double bonusOnGlobalImproved = 0.2;
 
-        // preskoči ranked<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a> ako je praktički isti kao globalBest (da ne dupliraš deposit)
+        // Skip ranked[0] if it's effectively identical to globalBest (avoid double deposit).
         const double eps = 1e-12;
         int r0 = 0;
 
@@ -588,14 +572,14 @@ void PheromoneModelMMASMove::onIterationEndRanked(int iterationIndex,
     }
     else if (useGb || ranked.empty())
     {
-        // Klasični MMAS "sidro" (samo ako je konzistentan)
+        // Classic MMAS "anchor" deposit (only if consistent).
         if (isValidSolution(globalBest.sol)) {
             depositSolution(globalBest.sol, globalBest.cost, 1.0);
         }
     }
     else
     {
-        // Ranked update: IB + bonus ostalima (samo ako su konzistentni)
+        // Ranked update: iteration-best + bonus to the rest (only if consistent).
         if (!ranked.empty() && isValidSolution(ranked[0].sol)) {
             depositSolution(ranked[0].sol, ranked[0].cost, 1.0);
         }
@@ -609,31 +593,29 @@ void PheromoneModelMMASMove::onIterationEndRanked(int iterationIndex,
         }
     }
 
-    // ako je global best poboljšan, osvježi tauMax/tauMin (standardno MMAS)
+    // If the global best improved, refresh tauMax/tauMin (standard MMAS).
     if (globalImproved) {
         ensureTauBoundsKnownFromGlobalBest(globalBest.cost);
     }
 
-    if (archiveOpt_.enabled && boundsKnown_) 
+    if (archiveOpt_.enabled && boundsKnown_)
     {
-    depositArchiveMemory_();
+        depositArchiveMemory_();
     }
-
 }
 
 void PheromoneModelMMASMove::reducePheromonesOnTour(const Solution& solution, double gamma)
 {
-    // Selektivno smanjuje feromone na određenom tour-u (smoothing)
-    // Formula: tau = (1 - gamma) * tau + gamma * tauBase
-    // gamma = 0.0 => potpuno resetiranje na tauBase
-    // gamma = 1.0 => bez promjene
-    
+    // Selectively reduces pheromones on a tour (smoothing):
+    // tau = (1 - gamma) * tau + gamma * tauBase
+    // gamma = 0.0 => full reset to tauBase; gamma = 1.0 => no change.
+
     if ((int)solution.node.size() != N_ || (int)solution.car.size() != N_) return;
-    
+
     const double oneMinusGamma = 1.0 - gamma;
     const double gammaTauBase = gamma * tauBase_;
-    
-    // Smanji feromone na MOVE edges u tour-u
+
+    // Reduce pheromones on move edges in the tour.
     for (int k = 0; k < N_; ++k)
     {
         const int i = solution.node[k];
@@ -651,7 +633,7 @@ void PheromoneModelMMASMove::reducePheromonesOnTour(const Solution& solution, do
         }
     }
     
-    // Smanji feromone na RETURN edges u tour-u (ako postoje)
+    // Reduce pheromones on return edges in the tour (if present).
     if (hasReturn_ && tauReturn_.size() == (size_t)C_ * (size_t)N_ * (size_t)N_)
     {
         int currentCar = solution.car[0];
@@ -676,7 +658,7 @@ void PheromoneModelMMASMove::reducePheromonesOnTour(const Solution& solution, do
             }
         }
         
-        // Finalni return edge
+        // Final return edge
         const int startNode = solution.node[0];
         const size_t ir = idxReturn(currentCar, startNode, lastCarNode);
         if (ir < tauReturn_.size())
@@ -690,19 +672,17 @@ void PheromoneModelMMASMove::reducePheromonesOnTour(const Solution& solution, do
 
 void PheromoneModelMMASMove::addToArchive(const EvaluatedSolution& solution)
 {
-    // Dodaje rješenje u archive (koristi postojeću metodu tryAddToArchive_)
     tryAddToArchive_(solution);
     trimArchive_();
 }
 
 double PheromoneModelMMASMove::getBestArchivedCost() const
 {
-    // Vraća najbolji cost iz archive-a (archive je sortiran, najbolji je prvi)
     if (!archiveOpt_.enabled || archive_.empty())
         return std::numeric_limits<double>::infinity();
-    
-    // Archive je sortiran po cost-u (najbolji prvi), ali trebamo osigurati da je sortiran
-    // jer se može dodati novo rješenje između poziva
+
+    // Re-scan rather than trust sort order, since a new solution may have
+    // been added between calls.
     double bestCost = std::numeric_limits<double>::infinity();
     for (const auto& entry : archive_)
     {
@@ -717,17 +697,15 @@ double PheromoneModelMMASMove::getBestArchivedCost() const
 
 bool PheromoneModelMMASMove::getBestArchivedSolution(EvaluatedSolution& out) const
 {
-    // Vraća najbolje arhivirano rješenje (archive je sortiran, najbolji je prvi)
     if (!archiveOpt_.enabled || archive_.empty())
         return false;
-    
-    // Pronađi najbolje rješenje (najmanji cost)
+
     const ArchiveEntry* bestEntry = nullptr;
     double bestCost = std::numeric_limits<double>::infinity();
-    
+
     for (const auto& entry : archive_)
     {
-        // Preskoči rješenja s nekonzistentnom veličinom (zaštita od korupcije / race)
+        // Skip entries with inconsistent size (guards against corruption/races).
         if ((int)entry.s.sol.node.size() != N_ || (int)entry.s.sol.car.size() != N_)
             continue;
         if (std::isfinite(entry.s.cost) && entry.s.cost < bestCost)
@@ -1366,7 +1344,7 @@ bool PheromoneModelTBASMove::getBestArchivedSolution(EvaluatedSolution& out) con
     
     for (const auto& entry : archive_)
     {
-        // Preskoči rješenja s nekonzistentnom veličinom (zaštita od korupcije / race)
+        // Skip entries with inconsistent size (guards against corruption/races).
         if ((int)entry.s.sol.node.size() != N_ || (int)entry.s.sol.car.size() != N_)
             continue;
         if (std::isfinite(entry.s.cost) && entry.s.cost < bestCost)
@@ -1375,13 +1353,13 @@ bool PheromoneModelTBASMove::getBestArchivedSolution(EvaluatedSolution& out) con
             bestEntry = &entry;
         }
     }
-    
+
     if (bestEntry)
     {
         out = bestEntry->s;
         return true;
     }
-    
+
     return false;
 }
 

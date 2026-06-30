@@ -13,18 +13,18 @@ namespace aco
 struct ArchiveOptions
 {
     bool enabled = true;
-    int size = 30;               // 20–40 tipično za N~300
-    int depositPerIter = 1;      // 1 ili 2
-    double depositWeight = 0.25; // memory signal (mali!)
-    bool hashIncludesCars = false; // preporuka: false (node-only)
-    bool canonicalizeReverseIfSymmetric = true; // ako instanca simetrična
+    int size = 30;               // typical: 20-40 for N~300
+    int depositPerIter = 1;      // 1 or 2
+    double depositWeight = 0.25; // small memory signal
+    bool hashIncludesCars = false; // recommended: false (node-only)
+    bool canonicalizeReverseIfSymmetric = true; // canonicalize for symmetric instances
 };
 
-struct ExplorationOptions 
+struct ExplorationOptions
 {
     bool enabled = false;
-    int iters = 20;                 // 10–30 tipično
-    double rhoMultiplier = 2.0;     // privremeno jača evaporaciju (npr. 1.5–3.0)
+    int iters = 20;                 // typical: 10-30
+    double rhoMultiplier = 2.0;     // temporarily boosts evaporation (e.g. 1.5-3.0)
 };
 
 class PheromoneModelMMASMove final : public IPheromoneModel
@@ -37,7 +37,6 @@ public:
 
     void reset() override;
     double tauMove(int car, int i, int j) const override;
-    // dodatno za povratne feromone
     double tauReturn(int car, int from, int to) const override;
     bool hasReturnPheromones() const override { return hasReturn_; }
 
@@ -57,20 +56,20 @@ public:
     // Get stagnation counter (noImprove_) for smoothing calculation
     int getStagnationCounter() const override { return noImprove_; }
     
-    // Selektivno smanjuje feromone na određenom tour-u (smoothing)
+    // Selectively reduces pheromones on a given tour (smoothing)
     void reducePheromonesOnTour(const Solution& solution, double gamma) override;
-    
-    // Dodaje rješenje u archive
+
+    // Adds a solution to the archive
     void addToArchive(const EvaluatedSolution& solution) override;
-    
-    // Vraća najbolji arhivirani best cost
+
+    // Returns the best archived cost
     double getBestArchivedCost() const override;
-    
-    // Vraća najbolje arhivirano rješenje
+
+    // Returns the best archived solution
     bool getBestArchivedSolution(EvaluatedSolution& out) const override;
 
 private:
-    // --- Archive memory (global best pool)
+    // Archive memory (global best pool)
     ArchiveOptions archiveOpt_;
 
     struct ArchiveEntry
@@ -79,21 +78,20 @@ private:
         uint64_t h = 0;
     };
     std::vector<ArchiveEntry> archive_;
-    size_t archiveCursor_ = 0; // round-robin za deposit
+    size_t archiveCursor_ = 0; // round-robin deposit cursor
 
-    bool treatAsAsymmetric_() const;   // isto kao preferThreeOptPolish u Colony
+    bool treatAsAsymmetric_() const;   // mirrors Colony::preferThreeOptPolish
     bool treatAsSymmetric_() const { return !treatAsAsymmetric_(); }
 
     void buildCanonicalNodeKey_(const std::vector<int>& nodes,
                                 std::vector<int>& out) const;
-
 
     uint64_t hashSolution_(const Solution& s) const;
     void tryAddToArchive_(const EvaluatedSolution& s);
     void trimArchive_();
     void depositArchiveMemory_();
 
-    // helper za hash
+    // hash helper
     static uint64_t splitmix64_(uint64_t x);
 
 
@@ -117,9 +115,8 @@ private:
 
     double computeTauMinFromPBest(double pBest) const;
 
-    // dodatno za povratne feromone
     bool hasReturn_ = false;
-    std::vector<double> tauReturn_; // alocirano samo ako hasReturn_==true
+    std::vector<double> tauReturn_; // allocated only when hasReturn_ == true
 
 private:
     std::shared_ptr<const cars_tsplib::Instance> inst_;
@@ -179,7 +176,7 @@ public:
     bool getBestArchivedSolution(EvaluatedSolution& out) const override;
 
 private:
-    // --- Archive memory (shared with MMAS)
+    // Archive memory (shared with MMAS)
     ArchiveOptions archiveOpt_;
     struct ArchiveEntry
     {

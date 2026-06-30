@@ -5,8 +5,8 @@
 #include <vector>
 #include <cstdint>
 
-#include "interfaces.hpp"              // definira aco::ILocalSearch i aco::Solution
-#include "FixedTourCarAssignerDP.hpp"  // treba zbog pointera i evaluateCostView
+#include "interfaces.hpp"              // defines aco::ILocalSearch and aco::Solution
+#include "FixedTourCarAssignerDP.hpp"  // needed for the pointer and evaluateCostView
 
 namespace cars_tsplib { struct Instance; }
 
@@ -38,8 +38,7 @@ struct TwoOptOptions
     // Don't-look bits (DLB)
     bool useDontLookBits = false;
 
-    // Koliko "pozicija" oko rezova probuditi nakon accepta (0 = samo rezovi).
-    // Tipično 1 ili 2.
+    // How many positions around each cut to wake after an accepted move (0 = cuts only). Typically 1 or 2.
     int dontLookWakeRadius = 1;
 };
 
@@ -57,7 +56,7 @@ private:
     bool timeExceeded_(std::uint64_t startNs) const;
     double singleCarCycleCost_(const std::vector<int>& nodes) const;
 
-    bool likelySymmetricTsp_() const; // za simetricne i asimetricne
+    bool likelySymmetricTsp_() const; // distinguishes symmetric vs asymmetric TSP
 
     // --- per-branch implementations ---
     void improveFirst_(aco::Solution& s,
@@ -75,7 +74,7 @@ private:
                       double& cost,
                       bool useCarDP,
                       bool useCand,
-                      bool useSymTspDelta,    // <-- NOVO
+                      bool useSymTspDelta,
                       std::vector<int>& pos,
                       std::vector<std::uint8_t>& dontLookNode,
                       std::int64_t& evals,
@@ -86,10 +85,10 @@ private:
     std::shared_ptr<const cars_tsplib::Instance> inst_;
     TwoOptOptions opt_;
 
-    // Ako je nullptr, ponašanje je TSP fallback.
+    // If nullptr, behavior falls back to plain TSP.
     std::shared_ptr<FixedTourCarAssignerDP> dp_;
 
-    // Scratch za DP view evaluaciju (bez realloc) - kao u RelocationLocalSearch
+    // Scratch buffer for DP view evaluation (avoids realloc), same pattern as RelocationLocalSearch.
     mutable Scratch scratch_;
 };
 
